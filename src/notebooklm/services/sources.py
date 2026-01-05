@@ -1,6 +1,7 @@
 """Source management service."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Union, TYPE_CHECKING
 
@@ -16,6 +17,7 @@ class Source:
     title: Optional[str] = None
     url: Optional[str] = None
     source_type: str = "text"
+    created_at: Optional[datetime] = None
 
     @classmethod
     def from_api_response(
@@ -84,6 +86,107 @@ class SourceService:
     async def get(self, notebook_id: str, source_id: str) -> Source:
         """Get details of a specific source."""
         result = await self._client.get_source(notebook_id, source_id)
+        return Source.from_api_response(result)
+
+    async def list(self, notebook_id: str) -> list["Source"]:
+        """List all sources in a notebook.
+
+        Returns:
+            List of Source objects.
+        """
+        # Get notebook data which includes sources
+        notebook = await self._client.get_notebook(notebook_id)
+        if not notebook or not isinstance(notebook, list) or len(notebook) == 0:
+            return []
+
+        nb_info = notebook[0]
+        if not isinstance(nb_info, list) or len(nb_info) <= 1:
+            return []
+
+        sources_list = nb_info[1]
+        if not isinstance(sources_list, list):
+            return []
+
+        # Convert raw source data to Source objects
+        sources = []
+        for src in sources_list:
+            if isinstance(src, list) and len(src) > 0:
+                # Extract basic info from source structure
+                src_id = src[0][0] if isinstance(src[0], list) else src[0]
+                title = src[1] if len(src) > 1 else None
+
+                # Detect URL if present
+                url = None
+                source_type = "text"
+                if len(src) > 2 and isinstance(src[2], list) and len(src[2]) > 7:
+                    url_list = src[2][7]
+                    if isinstance(url_list, list) and len(url_list) > 0:
+                        url = url_list[0]
+                        # Detect YouTube vs other URLs
+                        if 'youtube.com' in url or 'youtu.be' in url:
+                            source_type = "youtube"
+                        else:
+                            source_type = "url"
+
+                # Extract file info if no URL
+                if not url and title:
+                    if title.endswith('.pdf'):
+                        source_type = "pdf"
+                    elif title.endswith(('.txt', '.md', '.doc', '.docx')):
+                        source_type = "text_file"
+                    elif title.endswith(('.xls', '.xlsx', '.csv')):
+                        source_type = "spreadsheet"
+
+                # Check for file upload indicator
+                if source_type == "text" and len(src) > 2 and isinstance(src[2], list) and len(src[2]) > 1:
+                    if isinstance(src[2][1], int) and src[2][1] > 0:
+                        source_type = "upload"
+
+                # Extract timestamp from src[2][2] - [seconds, nanoseconds]
+                created_at = None
+                if len(src) > 2 and isinstance(src[2], list) and len(src[2]) > 2:
+                    timestamp_list = src[2][2]
+                    if isinstance(timestamp_list, list) and len(timestamp_list) > 0:
+                        try:
+                            created_at = datetime.fromtimestamp(timestamp_list[0])
+                        except (TypeError, ValueError):
+                            pass
+
+                sources.append(Source(
+                    id=str(src_id),
+                    title=title,
+                    url=url,
+                    source_type=source_type,
+                    created_at=created_at
+                ))
+
+        return sources
+
+    async def rename(self, notebook_id: str, source_id: str, new_title: str) -> "Source":
+        """Rename a source.
+
+        Args:
+            notebook_id: The notebook ID.
+            source_id: The source ID to rename.
+            new_title: The new title.
+
+        Returns:
+            Updated Source object.
+        """
+        result = await self._client.rename_source(notebook_id, source_id, new_title)
+        return Source.from_api_response(result)
+
+    async def refresh(self, notebook_id: str, source_id: str) -> "Source":
+        """Refresh a source (re-fetch content from URL).
+
+        Args:
+            notebook_id: The notebook ID.
+            source_id: The source ID to refresh.
+
+        Returns:
+            Updated Source object.
+        """
+        result = await self._client.refresh_source(notebook_id, source_id)
         return Source.from_api_response(result)
 
     async def delete(self, notebook_id: str, source_id: str) -> bool:

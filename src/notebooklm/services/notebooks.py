@@ -57,7 +57,9 @@ class NotebookService:
 
     async def get(self, notebook_id: str) -> Notebook:
         result = await self._client.get_notebook(notebook_id)
-        return Notebook.from_api_response(result)
+        # get_notebook returns [nb_info, ...] where nb_info contains the notebook data
+        nb_info = result[0] if result and isinstance(result, list) and len(result) > 0 else []
+        return Notebook.from_api_response(nb_info)
 
     async def delete(self, notebook_id: str) -> bool:
         result = await self._client.delete_notebook(notebook_id)

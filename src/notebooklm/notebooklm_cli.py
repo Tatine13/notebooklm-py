@@ -110,6 +110,27 @@ def detect_source_type(src: list) -> str:
     return '📝 Pasted Text'
 
 
+def get_source_type_display(source_type: str) -> str:
+    """Get display string for source type.
+
+    Args:
+        source_type: Type code from Source object
+
+    Returns:
+        Display string with emoji
+    """
+    type_map = {
+        "youtube": "🎥 YouTube",
+        "url": "🔗 Web URL",
+        "pdf": "📄 PDF",
+        "text_file": "📝 Text File",
+        "spreadsheet": "📊 Spreadsheet",
+        "upload": "📎 Upload",
+        "text": "📝 Pasted Text",
+    }
+    return type_map.get(source_type, "📝 Text")
+
+
 # Persistent browser profile directory
 BROWSER_PROFILE_DIR = Path.home() / ".notebooklm" / "browser_profile"
 # Context file for storing current notebook
@@ -127,12 +148,21 @@ def get_current_notebook() -> str | None:
         return None
 
 
-def set_current_notebook(notebook_id: str, title: str | None = None):
+def set_current_notebook(
+    notebook_id: str,
+    title: str | None = None,
+    is_owner: bool | None = None,
+    created_at: str | None = None
+):
     """Set the current notebook context."""
     CONTEXT_FILE.parent.mkdir(parents=True, exist_ok=True)
     data = {"notebook_id": notebook_id}
     if title:
         data["title"] = title
+    if is_owner is not None:
+        data["is_owner"] = is_owner
+    if created_at:
+        data["created_at"] = created_at
     CONTEXT_FILE.write_text(json.dumps(data, indent=2))
 
 
@@ -296,29 +326,47 @@ def use_notebook(ctx, notebook_id):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                return await client.get_notebook(notebook_id)
+                from .services.notebooks import NotebookService
+                service = NotebookService(client)
+                return await service.get(notebook_id)
 
-        notebook = run_async(_get())
-        title = None
-        if notebook and isinstance(notebook, list) and len(notebook) > 0:
-            nb_info = notebook[0]
-            if isinstance(nb_info, list) and len(nb_info) > 1:
-                title = nb_info[1]
+        nb = run_async(_get())
 
-        set_current_notebook(notebook_id, title)
-        console.print(f"[green]Now using notebook:[/green] {notebook_id}")
-        if title:
-            console.print(f"[dim]Title: {title}[/dim]")
+        created_str = nb.created_at.strftime("%Y-%m-%d") if nb.created_at else None
+        set_current_notebook(notebook_id, nb.title, nb.is_owner, created_str)
+
+        table = Table()
+        table.add_column("ID", style="cyan")
+        table.add_column("Title", style="green")
+        table.add_column("Owner")
+        table.add_column("Created", style="dim")
+
+        created = created_str or "-"
+        owner_status = "👤 Owner" if nb.is_owner else "👥 Shared"
+        table.add_row(nb.id, nb.title, owner_status, created)
+
+        console.print(table)
 
     except FileNotFoundError:
         # Allow setting context even without auth (might be used later)
         set_current_notebook(notebook_id)
-        console.print(f"[green]Now using notebook:[/green] {notebook_id}")
+        table = Table()
+        table.add_column("ID", style="cyan")
+        table.add_column("Title", style="green")
+        table.add_column("Owner")
+        table.add_column("Created", style="dim")
+        table.add_row(notebook_id, "-", "-", "-")
+        console.print(table)
     except Exception as e:
         # Still set context even if we can't verify the notebook
         set_current_notebook(notebook_id)
-        console.print(f"[green]Now using notebook:[/green] {notebook_id}")
-        console.print(f"[dim]Warning: {e}[/dim]")
+        table = Table()
+        table.add_column("ID", style="cyan")
+        table.add_column("Title", style="green")
+        table.add_column("Owner")
+        table.add_column("Created", style="dim")
+        table.add_row(notebook_id, f"⚠️  {str(e)}", "-", "-")
+        console.print(table)
 
 
 @cli.command("status")
@@ -328,12 +376,27 @@ def status():
     if notebook_id:
         try:
             data = json.loads(CONTEXT_FILE.read_text())
-            title = data.get("title", "")
-            console.print(f"[bold cyan]Current notebook:[/bold cyan] {notebook_id}")
-            if title:
-                console.print(f"[dim]Title: {title}[/dim]")
+            title = data.get("title", "-")
+            is_owner = data.get("is_owner", True)
+            created_at = data.get("created_at", "-")
+
+            table = Table()
+            table.add_column("ID", style="cyan")
+            table.add_column("Title", style="green")
+            table.add_column("Owner")
+            table.add_column("Created", style="dim")
+
+            owner_status = "👤 Owner" if is_owner else "👥 Shared"
+            table.add_row(notebook_id, str(title), owner_status, created_at)
+            console.print(table)
         except (json.JSONDecodeError, IOError):
-            console.print(f"[bold cyan]Current notebook:[/bold cyan] {notebook_id}")
+            table = Table()
+            table.add_column("ID", style="cyan")
+            table.add_column("Title", style="green")
+            table.add_column("Owner")
+            table.add_column("Created", style="dim")
+            table.add_row(notebook_id, "-", "-", "-")
+            console.print(table)
     else:
         console.print("[yellow]No notebook selected. Use 'notebooklm use <id>' to set one.[/yellow]")
 
@@ -514,10 +577,12 @@ def notebook_rename(ctx, notebook_id, new_title):
 
         async def _rename():
             async with NotebookLMClient(auth) as client:
-                return await client.rename_notebook(notebook_id, new_title)
+                service = NotebookService(client)
+                return await service.rename(notebook_id, new_title)
 
-        run_async(_rename())
-        console.print(f"[green]Renamed:[/green] {notebook_id} -> {new_title}")
+        nb = run_async(_rename())
+        console.print(f"[green]Renamed notebook:[/green] {nb.id}")
+        console.print(f"[bold]New title:[/bold] {nb.title}")
 
     except Exception as e:
         handle_error(e)
@@ -754,16 +819,11 @@ def source_list(ctx, notebook_id):
 
         async def _list():
             async with NotebookLMClient(auth) as client:
-                notebook = await client.get_notebook(nb_id)
-                if notebook and isinstance(notebook, list) and len(notebook) > 0:
-                    nb_info = notebook[0]
-                    if isinstance(nb_info, list) and len(nb_info) > 1:
-                        sources_list = nb_info[1]
-                        if isinstance(sources_list, list):
-                            return sources_list
-                return []
+                from .services.sources import SourceService
+                service = SourceService(client)
+                return await service.list(nb_id)
 
-        sources_list = run_async(_list())
+        sources = run_async(_list())
 
         table = Table(title=f"Sources in {nb_id}")
         table.add_column("ID", style="cyan")
@@ -771,25 +831,10 @@ def source_list(ctx, notebook_id):
         table.add_column("Type")
         table.add_column("Created", style="dim")
 
-        for src in sources_list:
-            if isinstance(src, list) and len(src) > 0:
-                # Extract ID
-                src_id = src[0][0] if isinstance(src[0], list) else src[0]
-
-                # Extract title
-                title = src[1] if len(src) > 1 else "-"
-
-                # Detect type
-                type_display = detect_source_type(src)
-
-                # Extract timestamp from src[2][2] - [seconds, nanoseconds]
-                created = "-"
-                if len(src) > 2 and isinstance(src[2], list) and len(src[2]) > 2:
-                    timestamp_list = src[2][2]
-                    if isinstance(timestamp_list, list) and len(timestamp_list) > 0:
-                        created = datetime.fromtimestamp(timestamp_list[0]).strftime("%Y-%m-%d %H:%M")
-
-                table.add_row(str(src_id), title, type_display, created)
+        for src in sources:
+            type_display = get_source_type_display(src.source_type)
+            created = src.created_at.strftime("%Y-%m-%d %H:%M") if src.created_at else "-"
+            table.add_row(src.id, src.title or "-", type_display, created)
 
         console.print(table)
 
@@ -853,12 +898,19 @@ def source_get(ctx, source_id, notebook_id):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                return await client.get_source(nb_id, source_id)
+                from .services.sources import SourceService
+                service = SourceService(client)
+                return await service.get(nb_id, source_id)
 
         source = run_async(_get())
         if source:
-            console.print("[bold cyan]Source Details:[/bold cyan]")
-            console.print(source)
+            console.print(f"[bold cyan]Source:[/bold cyan] {source.id}")
+            console.print(f"[bold]Title:[/bold] {source.title}")
+            console.print(f"[bold]Type:[/bold] {get_source_type_display(source.source_type)}")
+            if source.url:
+                console.print(f"[bold]URL:[/bold] {source.url}")
+            if source.created_at:
+                console.print(f"[bold]Created:[/bold] {source.created_at.strftime('%Y-%m-%d %H:%M')}")
         else:
             console.print("[yellow]Source not found[/yellow]")
 
@@ -910,10 +962,13 @@ def source_rename(ctx, source_id, new_title, notebook_id):
 
         async def _rename():
             async with NotebookLMClient(auth) as client:
-                return await client.rename_source(nb_id, source_id, new_title)
+                from .services.sources import SourceService
+                service = SourceService(client)
+                return await service.rename(nb_id, source_id, new_title)
 
-        run_async(_rename())
-        console.print(f"[green]Renamed:[/green] {source_id} -> {new_title}")
+        source = run_async(_rename())
+        console.print(f"[green]Renamed source:[/green] {source.id}")
+        console.print(f"[bold]New title:[/bold] {source.title}")
 
     except Exception as e:
         handle_error(e)
@@ -932,13 +987,16 @@ def source_refresh(ctx, source_id, notebook_id):
 
         async def _refresh():
             async with NotebookLMClient(auth) as client:
-                return await client.refresh_source(nb_id, source_id)
+                from .services.sources import SourceService
+                service = SourceService(client)
+                return await service.refresh(nb_id, source_id)
 
         with console.status(f"Refreshing source..."):
-            result = run_async(_refresh())
+            source = run_async(_refresh())
 
-        if result:
-            console.print(f"[green]Source refreshed:[/green] {source_id}")
+        if source:
+            console.print(f"[green]Source refreshed:[/green] {source.id}")
+            console.print(f"[bold]Title:[/bold] {source.title}")
         else:
             console.print("[yellow]Refresh returned no result[/yellow]")
 
