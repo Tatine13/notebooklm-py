@@ -599,13 +599,24 @@ class NotebookLMClient:
         )
 
     async def get_source(self, notebook_id: str, source_id: str) -> Any:
-        """Get details of a specific source."""
-        params = [source_id, notebook_id, [2]]
-        return await self._rpc_call(
-            RPCMethod.GET_SOURCE,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-        )
+        """Get details of a specific source.
+
+        Returns:
+            Source data, or None if not found.
+        """
+        # GET_SOURCE RPC doesn't work, so filter from notebook data instead
+        notebook = await self.get_notebook(notebook_id)
+        if notebook and isinstance(notebook, list) and len(notebook) > 0:
+            nb_info = notebook[0]
+            if isinstance(nb_info, list) and len(nb_info) > 1:
+                sources_list = nb_info[1]
+                if isinstance(sources_list, list):
+                    for src in sources_list:
+                        if isinstance(src, list) and len(src) > 0:
+                            src_id = src[0][0] if isinstance(src[0], list) else src[0]
+                            if src_id == source_id:
+                                return src
+        return None
 
     async def refresh_source(self, notebook_id: str, source_id: str) -> Any:
         """Refresh a source to get updated content (for URL/Drive sources)."""
