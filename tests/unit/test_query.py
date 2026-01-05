@@ -53,6 +53,7 @@ class TestQuery:
             result = await client.query(
                 notebook_id="nb_123",
                 query_text="What is this?",
+                source_ids=["test_source"],
             )
 
         assert (
@@ -89,6 +90,7 @@ class TestQuery:
                 notebook_id="nb_123",
                 query_text="Follow up?",
                 conversation_id="conv_123",
+                source_ids=["test_source"],
             )
 
         assert (
