@@ -78,6 +78,24 @@ class Artifact:
         """Check if this is flashcards (type 4, variant 1)."""
         return self.artifact_type == 4 and self.variant == 1
 
+    @property
+    def report_subtype(self) -> Optional[str]:
+        """Get the report subtype for type 2 artifacts.
+
+        Returns:
+            'briefing_doc', 'study_guide', 'blog_post', or None if not a report.
+        """
+        if self.artifact_type != 2:
+            return None
+        title_lower = self.title.lower()
+        if title_lower.startswith("briefing doc"):
+            return "briefing_doc"
+        elif title_lower.startswith("study guide"):
+            return "study_guide"
+        elif title_lower.startswith("blog post"):
+            return "blog_post"
+        return "report"  # Generic report
+
 
 @dataclass
 class ArtifactStatus:

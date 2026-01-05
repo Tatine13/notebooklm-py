@@ -15,6 +15,7 @@ from .types import (
     InfographicDetail,
     SlideDeckFormat,
     SlideDeckLength,
+    ReportFormat,
 )
 from .encoder import encode_rpc_request, build_request_body
 from .decoder import (
@@ -38,8 +39,9 @@ __all__ = [
     "QuizDifficulty",
     "InfographicOrientation",
     "InfographicDetail",
-    "SlidesFormat",
-    "SlidesLength",
+    "SlideDeckFormat",
+    "SlideDeckLength",
+    "ReportFormat",
     "encode_rpc_request",
     "build_request_body",
     "strip_anti_xssi",

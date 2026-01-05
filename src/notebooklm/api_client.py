@@ -19,6 +19,7 @@ from .rpc import (
     InfographicDetail,
     SlideDeckFormat,
     SlideDeckLength,
+    ReportFormat,
     BATCHEXECUTE_URL,
     QUERY_URL,
     encode_rpc_request,
@@ -1163,11 +1164,14 @@ class NotebookLMClient:
         )
 
     async def generate_study_guide(
-        self, notebook_id: str, source_ids: Optional[list[str]] = None
-    ) -> Any:
-        """Generate a study guide from notebook content."""
-        return await self._act_on_sources(
-            notebook_id, "notebook_guide_study_guide", source_ids
+        self, notebook_id: str, source_ids: Optional[list[str]] = None, language: str = "en"
+    ) -> Optional[Dict[str, Any]]:
+        """Generate a study guide artifact from notebook content.
+
+        This is a convenience wrapper around generate_report().
+        """
+        return await self.generate_report(
+            notebook_id, ReportFormat.STUDY_GUIDE, source_ids, language
         )
 
     async def generate_faq(
@@ -1176,13 +1180,72 @@ class NotebookLMClient:
         """Generate FAQ from notebook content."""
         return await self._act_on_sources(notebook_id, "faq", source_ids)
 
-    async def generate_briefing_doc(
-        self, notebook_id: str, source_ids: Optional[list[str]] = None
-    ) -> Any:
-        """Generate a briefing document from notebook content."""
+    async def generate_report(
+        self,
+        notebook_id: str,
+        report_format: ReportFormat = ReportFormat.BRIEFING_DOC,
+        source_ids: Optional[list[str]] = None,
+        language: str = "en",
+        custom_prompt: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Generate a report artifact from notebook content.
+
+        Args:
+            notebook_id: The notebook ID.
+            report_format: Type of report (briefing_doc, study_guide, blog_post, custom).
+            source_ids: List of source IDs to include. If None, uses all sources.
+            language: Language code (default: "en").
+            custom_prompt: Custom instructions (required for CUSTOM format).
+
+        Returns:
+            Dictionary containing artifact metadata with keys:
+                - artifact_id: Unique artifact identifier
+                - status: "in_progress" or "completed"
+                - format: The report format used
+            Returns None if generation fails.
+        """
         if source_ids is None:
             notebook_data = await self.get_notebook(notebook_id)
             source_ids = self._extract_source_ids(notebook_data)
+
+        # Report format configurations
+        format_configs = {
+            ReportFormat.BRIEFING_DOC: {
+                "title": "Briefing Doc",
+                "description": "Key insights and important quotes",
+                "prompt": (
+                    "Create a comprehensive briefing document that includes an "
+                    "Executive Summary, detailed analysis of key themes, important "
+                    "quotes with context, and actionable insights."
+                ),
+            },
+            ReportFormat.STUDY_GUIDE: {
+                "title": "Study Guide",
+                "description": "Short-answer quiz, essay questions, glossary",
+                "prompt": (
+                    "Create a comprehensive study guide that includes key concepts, "
+                    "short-answer practice questions, essay prompts for deeper "
+                    "exploration, and a glossary of important terms."
+                ),
+            },
+            ReportFormat.BLOG_POST: {
+                "title": "Blog Post",
+                "description": "Insightful takeaways in readable article format",
+                "prompt": (
+                    "Write an engaging blog post that presents the key insights "
+                    "in an accessible, reader-friendly format. Include an attention-"
+                    "grabbing introduction, well-organized sections, and a compelling "
+                    "conclusion with takeaways."
+                ),
+            },
+            ReportFormat.CUSTOM: {
+                "title": "Custom Report",
+                "description": "Custom format",
+                "prompt": custom_prompt or "Create a report based on the provided sources.",
+            },
+        }
+
+        config = format_configs[report_format]
 
         # Triple-nested for type array, double-nested for metadata
         source_ids_triple = [[[sid]] for sid in source_ids] if source_ids else []
@@ -1194,7 +1257,7 @@ class NotebookLMClient:
             [
                 None,
                 None,
-                2,  # Type 2 = Briefing Doc
+                2,  # StudioContentType.REPORT
                 source_ids_triple,
                 None,
                 None,
@@ -1202,20 +1265,58 @@ class NotebookLMClient:
                 [
                     None,
                     [
-                        "Briefing Doc",
-                        "Key insights and important quotes",
+                        config["title"],
+                        config["description"],
                         None,
                         source_ids_double,
-                        "en",
-                        "Create a comprehensive briefing document that synthesizes the main themes and ideas from the sources.",
+                        language,
+                        config["prompt"],
+                        None,
+                        True,
                     ],
                 ],
             ],
         ]
-        return await self._rpc_call(
+
+        result = await self._rpc_call(
             RPCMethod.CREATE_VIDEO,
             params,
             source_path=f"/notebook/{notebook_id}",
+        )
+
+        if result and isinstance(result, list) and len(result) > 0:
+            artifact_data = result[0]
+            artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
+            status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
+
+            return {
+                "artifact_id": artifact_id,
+                "status": "in_progress" if status_code == 1 else "completed" if status_code == 3 else "unknown",
+                "format": report_format.value,
+            }
+
+        return None
+
+    async def generate_briefing_doc(
+        self, notebook_id: str, source_ids: Optional[list[str]] = None, language: str = "en"
+    ) -> Optional[Dict[str, Any]]:
+        """Generate a briefing document from notebook content.
+
+        This is a convenience wrapper around generate_report().
+        """
+        return await self.generate_report(
+            notebook_id, ReportFormat.BRIEFING_DOC, source_ids, language
+        )
+
+    async def generate_blog_post(
+        self, notebook_id: str, source_ids: Optional[list[str]] = None, language: str = "en"
+    ) -> Optional[Dict[str, Any]]:
+        """Generate a blog post from notebook content.
+
+        This is a convenience wrapper around generate_report().
+        """
+        return await self.generate_report(
+            notebook_id, ReportFormat.BLOG_POST, source_ids, language
         )
 
     async def generate_timeline(

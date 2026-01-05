@@ -192,3 +192,16 @@ class SlideDeckLength(int, Enum):
 
     DEFAULT = 1
     SHORT = 2
+
+
+class ReportFormat(str, Enum):
+    """Report format options for type 2 artifacts.
+
+    All reports use StudioContentType.REPORT (2) but are differentiated
+    by the title/description/prompt configuration.
+    """
+
+    BRIEFING_DOC = "briefing_doc"
+    STUDY_GUIDE = "study_guide"
+    BLOG_POST = "blog_post"
+    CUSTOM = "custom"

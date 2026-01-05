@@ -82,12 +82,13 @@ ARTIFACT_TYPE_MAP = {
 }
 
 
-def get_artifact_type_display(artifact_type: int, variant: int = None) -> str:
+def get_artifact_type_display(artifact_type: int, variant: int = None, report_subtype: str = None) -> str:
     """Get display string for artifact type.
 
     Args:
         artifact_type: StudioContentType enum value
         variant: Optional variant code (for type 4: 1=flashcards, 2=quiz)
+        report_subtype: Optional report subtype (for type 2: briefing_doc, study_guide, blog_post)
 
     Returns:
         Display string with emoji
@@ -98,6 +99,17 @@ def get_artifact_type_display(artifact_type: int, variant: int = None) -> str:
             return "🃏 Flashcards"
         elif variant == 2:
             return "📝 Quiz"
+
+    # Handle report subtypes (type 2)
+    if artifact_type == 2 and report_subtype:
+        report_displays = {
+            "briefing_doc": "📋 Briefing Doc",
+            "study_guide": "📚 Study Guide",
+            "blog_post": "✍️ Blog Post",
+            "report": "📄 Report",
+        }
+        return report_displays.get(report_subtype, "📄 Report")
+
     return ARTIFACT_TYPE_DISPLAY.get(artifact_type, f"Unknown ({artifact_type})")
 
 
@@ -1284,7 +1296,7 @@ def artifact_list(ctx, notebook_id, artifact_type):
         table.add_column("Status", style="yellow")
 
         for art in artifacts:
-            type_display = get_artifact_type_display(art.artifact_type, art.variant)
+            type_display = get_artifact_type_display(art.artifact_type, art.variant, art.report_subtype)
             created = art.created_at.strftime("%Y-%m-%d %H:%M") if art.created_at else "-"
             status = "completed" if art.is_completed else "processing" if art.is_processing else str(art.status)
             table.add_row(art.id, art.title, type_display, created, status)
@@ -1317,7 +1329,7 @@ def artifact_get(ctx, artifact_id, notebook_id):
         if artifact:
             console.print(f"[bold cyan]Artifact:[/bold cyan] {artifact.id}")
             console.print(f"[bold]Title:[/bold] {artifact.title}")
-            console.print(f"[bold]Type:[/bold] {get_artifact_type_display(artifact.artifact_type, artifact.variant)}")
+            console.print(f"[bold]Type:[/bold] {get_artifact_type_display(artifact.artifact_type, artifact.variant, artifact.report_subtype)}")
             console.print(f"[bold]Status:[/bold] {'completed' if artifact.is_completed else 'processing' if artifact.is_processing else str(artifact.status)}")
             if artifact.created_at:
                 console.print(f"[bold]Created:[/bold] {artifact.created_at.strftime('%Y-%m-%d %H:%M')}")
@@ -1466,9 +1478,10 @@ def generate():
       data-table   Data table
       mind-map     Mind map
       timeline     Timeline
-      study-guide  Study guide
-      faq          FAQ
-      briefing-doc Briefing document
+      study-guide  Study guide (artifact)
+      faq          FAQ (immediate text)
+      briefing-doc Briefing document (artifact)
+      blog-post    Blog post (artifact)
     """
     pass
 
@@ -1926,9 +1939,10 @@ def generate_timeline(ctx, notebook_id):
 
 @generate.command("study-guide")
 @click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
 @click.pass_context
-def generate_study_guide(ctx, notebook_id):
-    """Generate study guide."""
+def generate_study_guide(ctx, notebook_id, wait):
+    """Generate study guide (creates artifact)."""
     try:
         nb_id = require_notebook(notebook_id)
         cookies, csrf, session_id = get_client(ctx)
@@ -1936,16 +1950,29 @@ def generate_study_guide(ctx, notebook_id):
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                return await client.generate_study_guide(nb_id)
+                result = await client.generate_study_guide(nb_id)
 
-        with console.status("Generating study guide..."):
-            result = run_async(_generate())
+                if not result:
+                    return None
 
-        if result:
-            console.print("[green]Study guide generated:[/green]")
-            console.print(result)
+                task_id = result.get("artifact_id")
+                if wait and task_id:
+                    console.print(f"[yellow]Generating study guide...[/yellow]")
+                    service = ArtifactService(client)
+                    return await service.wait_for_completion(nb_id, task_id, poll_interval=5.0)
+                return result
+
+        status = run_async(_generate())
+
+        if not status:
+            console.print("[red]Study guide generation failed (Google may be rate limiting)[/red]")
+        elif hasattr(status, "is_complete") and status.is_complete:
+            console.print("[green]Study guide ready[/green]")
+        elif hasattr(status, "is_failed") and status.is_failed:
+            console.print(f"[red]Failed:[/red] {status.error}")
         else:
-            console.print("[yellow]No result[/yellow]")
+            artifact_id = status.get("artifact_id") if isinstance(status, dict) else None
+            console.print(f"[yellow]Started:[/yellow] {artifact_id or status}")
 
     except Exception as e:
         handle_error(e)
@@ -1955,7 +1982,7 @@ def generate_study_guide(ctx, notebook_id):
 @click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.pass_context
 def generate_faq(ctx, notebook_id):
-    """Generate FAQ."""
+    """Generate FAQ (returns text immediately)."""
     try:
         nb_id = require_notebook(notebook_id)
         cookies, csrf, session_id = get_client(ctx)
@@ -1980,9 +2007,10 @@ def generate_faq(ctx, notebook_id):
 
 @generate.command("briefing-doc")
 @click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
 @click.pass_context
-def generate_briefing_doc(ctx, notebook_id):
-    """Generate briefing document."""
+def generate_briefing_doc(ctx, notebook_id, wait):
+    """Generate briefing document (creates artifact)."""
     try:
         nb_id = require_notebook(notebook_id)
         cookies, csrf, session_id = get_client(ctx)
@@ -1990,16 +2018,70 @@ def generate_briefing_doc(ctx, notebook_id):
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                return await client.generate_briefing_doc(nb_id)
+                result = await client.generate_briefing_doc(nb_id)
 
-        with console.status("Generating briefing document..."):
-            result = run_async(_generate())
+                if not result:
+                    return None
 
-        if result:
-            console.print("[green]Briefing document generated:[/green]")
-            console.print(result)
+                task_id = result.get("artifact_id")
+                if wait and task_id:
+                    console.print(f"[yellow]Generating briefing document...[/yellow]")
+                    service = ArtifactService(client)
+                    return await service.wait_for_completion(nb_id, task_id, poll_interval=5.0)
+                return result
+
+        status = run_async(_generate())
+
+        if not status:
+            console.print("[red]Briefing document generation failed (Google may be rate limiting)[/red]")
+        elif hasattr(status, "is_complete") and status.is_complete:
+            console.print("[green]Briefing document ready[/green]")
+        elif hasattr(status, "is_failed") and status.is_failed:
+            console.print(f"[red]Failed:[/red] {status.error}")
         else:
-            console.print("[yellow]No result[/yellow]")
+            artifact_id = status.get("artifact_id") if isinstance(status, dict) else None
+            console.print(f"[yellow]Started:[/yellow] {artifact_id or status}")
+
+    except Exception as e:
+        handle_error(e)
+
+
+@generate.command("blog-post")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.pass_context
+def generate_blog_post(ctx, notebook_id, wait):
+    """Generate blog post (creates artifact)."""
+    try:
+        nb_id = require_notebook(notebook_id)
+        cookies, csrf, session_id = get_client(ctx)
+        auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
+
+        async def _generate():
+            async with NotebookLMClient(auth) as client:
+                result = await client.generate_blog_post(nb_id)
+
+                if not result:
+                    return None
+
+                task_id = result.get("artifact_id")
+                if wait and task_id:
+                    console.print(f"[yellow]Generating blog post...[/yellow]")
+                    service = ArtifactService(client)
+                    return await service.wait_for_completion(nb_id, task_id, poll_interval=5.0)
+                return result
+
+        status = run_async(_generate())
+
+        if not status:
+            console.print("[red]Blog post generation failed (Google may be rate limiting)[/red]")
+        elif hasattr(status, "is_complete") and status.is_complete:
+            console.print("[green]Blog post ready[/green]")
+        elif hasattr(status, "is_failed") and status.is_failed:
+            console.print(f"[red]Failed:[/red] {status.error}")
+        else:
+            artifact_id = status.get("artifact_id") if isinstance(status, dict) else None
+            console.print(f"[yellow]Started:[/yellow] {artifact_id or status}")
 
     except Exception as e:
         handle_error(e)
