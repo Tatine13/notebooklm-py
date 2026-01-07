@@ -380,10 +380,10 @@ result = await client.artifacts.export(
 # Audio (podcast)
 status = await client.artifacts.generate_audio(
     notebook_id,
-    source_ids=None,        # List of source IDs (None = all)
-    instructions="...",     # Custom instructions
-    format=AudioFormat.DEEP_DIVE,  # DEEP_DIVE, BRIEF, CRITIQUE, DEBATE
-    length=AudioLength.DEFAULT,    # SHORT, DEFAULT, LONG
+    source_ids=None,           # List of source IDs (None = all)
+    instructions="...",        # Custom instructions
+    audio_format=AudioFormat.DEEP_DIVE,  # DEEP_DIVE, BRIEF, CRITIQUE, DEBATE
+    audio_length=AudioLength.DEFAULT,    # SHORT, DEFAULT, LONG
     language="en"
 )
 
@@ -392,8 +392,8 @@ status = await client.artifacts.generate_video(
     notebook_id,
     source_ids=None,
     instructions="...",
-    format=VideoFormat.EXPLAINER,  # EXPLAINER, BRIEF
-    style=VideoStyle.AUTO,         # AUTO, CLASSIC, WHITEBOARD, KAWAII, ANIME, etc.
+    video_format=VideoFormat.EXPLAINER,  # EXPLAINER, BRIEF
+    video_style=VideoStyle.AUTO_SELECT,  # AUTO_SELECT, CLASSIC, WHITEBOARD, KAWAII, ANIME, etc.
     language="en"
 )
 
@@ -655,7 +655,7 @@ class VideoFormat(Enum):
     BRIEF = 2
 
 class VideoStyle(Enum):
-    AUTO = 1
+    AUTO_SELECT = 1
     CUSTOM = 2
     CLASSIC = 3
     WHITEBOARD = 4
@@ -708,8 +708,8 @@ class InfographicDetail(Enum):
 
 ```python
 class SlideDeckFormat(Enum):
-    DETAILED = 1
-    PRESENTER = 2
+    DETAILED_DECK = 1
+    PRESENTER_SLIDES = 2
 
 class SlideDeckLength(Enum):
     DEFAULT = 1
