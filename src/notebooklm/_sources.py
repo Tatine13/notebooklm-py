@@ -468,8 +468,9 @@ class SourcesAPI:
 
     async def _register_file_source(self, notebook_id: str, filename: str) -> str:
         """Register a file source intent and get SOURCE_ID."""
+        # Note: filename is double-nested: [[filename]], not triple-nested
         params = [
-            [[[filename]]],
+            [[filename]],
             notebook_id,
             [2],
             [1, None, None, None, None, None, None, None, None, None, [1]],

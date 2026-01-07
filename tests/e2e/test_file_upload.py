@@ -10,9 +10,7 @@ from .conftest import requires_auth
 class TestFileUpload:
     """File upload tests.
 
-    Note: Only PDF files are reliably supported by the NotebookLM API.
-    Text and Markdown file uploads may return None. For text content,
-    use add_text() instead.
+    These tests verify the 3-step resumable upload protocol works correctly.
     """
 
     @pytest.mark.asyncio
@@ -24,19 +22,15 @@ class TestFileUpload:
         if not test_pdf.exists():
             pytest.skip("No test PDF file available")
 
-        result = await client.sources.add_file(
+        source = await client.sources.add_file(
             test_notebook_id, test_pdf, mime_type="application/pdf"
         )
-        assert result is not None
-        source_id = result[0][0][0]
-        created_sources.append(source_id)
-        assert source_id is not None
+        assert source is not None
+        assert source.id is not None
+        created_sources.append(source.id)
 
     @pytest.mark.slow
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="Text file upload not reliably supported - use add_text() instead"
-    )
     async def test_add_text_file(
         self, client, test_notebook_id, created_sources, cleanup_sources
     ):
@@ -47,19 +41,15 @@ class TestFileUpload:
             temp_path = f.name
 
         try:
-            result = await client.sources.add_file(test_notebook_id, temp_path)
-            assert result is not None
-            source_id = result[0][0][0]
-            created_sources.append(source_id)
-            assert source_id is not None
+            source = await client.sources.add_file(test_notebook_id, temp_path)
+            assert source is not None
+            assert source.id is not None
+            created_sources.append(source.id)
         finally:
             os.unlink(temp_path)
 
     @pytest.mark.slow
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="Markdown file upload not reliably supported - use add_text() instead"
-    )
     async def test_add_markdown_file(
         self, client, test_notebook_id, created_sources, cleanup_sources
     ):
@@ -72,12 +62,11 @@ class TestFileUpload:
             temp_path = f.name
 
         try:
-            result = await client.sources.add_file(
+            source = await client.sources.add_file(
                 test_notebook_id, temp_path, mime_type="text/markdown"
             )
-            assert result is not None
-            source_id = result[0][0][0]
-            created_sources.append(source_id)
-            assert source_id is not None
+            assert source is not None
+            assert source.id is not None
+            created_sources.append(source.id)
         finally:
             os.unlink(temp_path)
