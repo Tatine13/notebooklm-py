@@ -1,4 +1,31 @@
-"""Authentication handling for NotebookLM API."""
+"""Authentication handling for NotebookLM API.
+
+This module provides authentication utilities for the NotebookLM client:
+
+1. **Cookie-based Authentication**: Loads Google cookies from Playwright storage
+   state files created by `notebooklm login`.
+
+2. **Token Extraction**: Fetches CSRF (SNlM0e) and session (FdrFJe) tokens from
+   the NotebookLM homepage, required for all RPC calls.
+
+3. **Browser-based Downloads**: Uses persistent Playwright browser context for
+   downloading media files from Google content servers that require cross-domain
+   authentication.
+
+Usage:
+    # Recommended: Use AuthTokens.from_storage() for full initialization
+    auth = await AuthTokens.from_storage()
+    async with NotebookLMClient(auth) as client:
+        ...
+
+    # For downloads requiring browser authentication
+    await download_with_browser(url, output_path)
+
+Security Notes:
+    - Storage state files contain sensitive session cookies
+    - Browser profile directory stores persistent login state
+    - Path traversal protection is enforced on all file operations
+"""
 
 import json
 import re
@@ -72,7 +99,20 @@ class AuthTokens:
 
 
 def extract_cookies_from_storage(storage_state: dict[str, Any]) -> dict[str, str]:
-    """Extract all Google cookies from Playwright storage state for NotebookLM auth."""
+    """Extract Google cookies from Playwright storage state for NotebookLM auth.
+
+    Filters cookies to only include those from .google.com and notebooklm.google.com
+    domains, as these are the only ones needed for API authentication.
+
+    Args:
+        storage_state: Parsed JSON from Playwright's storage state file.
+
+    Returns:
+        Dict mapping cookie names to values.
+
+    Raises:
+        ValueError: If required cookies (SID) are missing from storage state.
+    """
     cookies = {}
 
     for cookie in storage_state.get("cookies", []):
@@ -158,7 +198,21 @@ def extract_session_id_from_html(html: str, final_url: str = "") -> str:
 
 
 def load_auth_from_storage(path: Optional[Path] = None) -> dict[str, str]:
-    """Load Google cookies from Playwright storage state file."""
+    """Load Google cookies from Playwright storage state file.
+
+    Reads the JSON storage state file created by `notebooklm login` and extracts
+    the required Google authentication cookies.
+
+    Args:
+        path: Path to storage_state.json. If None, uses ~/.notebooklm/storage_state.json.
+
+    Returns:
+        Dict mapping cookie names to values (e.g., {"SID": "...", "HSID": "..."}).
+
+    Raises:
+        FileNotFoundError: If storage file doesn't exist.
+        ValueError: If required cookies (SID) are missing.
+    """
     storage_path = path or DEFAULT_STORAGE_PATH
 
     if not storage_path.exists():

@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Optional
 
 from .auth import AuthTokens
-from ._core import ClientCore
+from ._core import ClientCore, DEFAULT_TIMEOUT
 from ._notebooks import NotebooksAPI
 from ._sources import SourcesAPI
 from ._artifacts import ArtifactsAPI
@@ -63,13 +63,14 @@ class NotebookLMClient:
         auth: The AuthTokens used for authentication
     """
 
-    def __init__(self, auth: AuthTokens):
+    def __init__(self, auth: AuthTokens, timeout: float = DEFAULT_TIMEOUT):
         """Initialize the NotebookLM client.
 
         Args:
             auth: Authentication tokens from browser login.
+            timeout: HTTP request timeout in seconds. Defaults to 30 seconds.
         """
-        self._core = ClientCore(auth)
+        self._core = ClientCore(auth, timeout=timeout)
 
         # Initialize sub-client APIs
         self.notebooks = NotebooksAPI(self._core)
@@ -99,7 +100,9 @@ class NotebookLMClient:
         return self._core.is_open
 
     @classmethod
-    async def from_storage(cls, path: Optional[str] = None) -> "NotebookLMClient":
+    async def from_storage(
+        cls, path: Optional[str] = None, timeout: float = DEFAULT_TIMEOUT
+    ) -> "NotebookLMClient":
         """Create a client from Playwright storage state file.
 
         This is the recommended way to create a client for programmatic use.
@@ -108,6 +111,7 @@ class NotebookLMClient:
         Args:
             path: Path to storage_state.json. If None, uses default location
                   (~/.notebooklm/storage_state.json).
+            timeout: HTTP request timeout in seconds. Defaults to 30 seconds.
 
         Returns:
             NotebookLMClient instance (not yet connected).
@@ -118,7 +122,7 @@ class NotebookLMClient:
         """
         storage_path = Path(path) if path else None
         auth = await AuthTokens.from_storage(storage_path)
-        return cls(auth)
+        return cls(auth, timeout=timeout)
 
     async def refresh_auth(self) -> AuthTokens:
         """Refresh authentication tokens by fetching the NotebookLM homepage.

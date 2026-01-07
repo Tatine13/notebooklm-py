@@ -14,6 +14,7 @@ from .auth import download_with_browser, download_urls_with_browser
 from .rpc import (
     RPCMethod,
     StudioContentType,
+    ArtifactStatus,
     AudioFormat,
     AudioLength,
     VideoFormat,
@@ -788,10 +789,12 @@ class ArtifactsAPI:
         """
         artifacts_data = await self._list_raw(notebook_id)
 
-        # Filter for completed audio (type 1, status 3)
+        # Filter for completed audio artifacts
         audio_candidates = [
             a for a in artifacts_data
-            if isinstance(a, list) and len(a) > 4 and a[2] == 1 and a[4] == 3
+            if isinstance(a, list) and len(a) > 4
+            and a[2] == StudioContentType.AUDIO
+            and a[4] == ArtifactStatus.COMPLETED
         ]
 
         if artifact_id:
@@ -846,10 +849,12 @@ class ArtifactsAPI:
         """
         artifacts_data = await self._list_raw(notebook_id)
 
-        # Filter for completed videos (type 3, status 3)
+        # Filter for completed video artifacts
         video_candidates = [
             a for a in artifacts_data
-            if isinstance(a, list) and len(a) > 4 and a[2] == 3 and a[4] == 3
+            if isinstance(a, list) and len(a) > 4
+            and a[2] == StudioContentType.VIDEO
+            and a[4] == ArtifactStatus.COMPLETED
         ]
 
         if artifact_id:
@@ -920,10 +925,12 @@ class ArtifactsAPI:
         """
         artifacts_data = await self._list_raw(notebook_id)
 
-        # Filter for completed infographics (type 7, status 3)
+        # Filter for completed infographic artifacts
         info_candidates = [
             a for a in artifacts_data
-            if isinstance(a, list) and len(a) > 4 and a[2] == 7 and a[4] == 3
+            if isinstance(a, list) and len(a) > 4
+            and a[2] == StudioContentType.INFOGRAPHIC
+            and a[4] == ArtifactStatus.COMPLETED
         ]
 
         if artifact_id:
@@ -978,10 +985,12 @@ class ArtifactsAPI:
         """
         artifacts_data = await self._list_raw(notebook_id)
 
-        # Filter for completed slide decks (type 8, status 3)
+        # Filter for completed slide deck artifacts
         slide_candidates = [
             a for a in artifacts_data
-            if isinstance(a, list) and len(a) > 4 and a[2] == 8 and a[4] == 3
+            if isinstance(a, list) and len(a) > 4
+            and a[2] == StudioContentType.SLIDE_DECK
+            and a[4] == ArtifactStatus.COMPLETED
         ]
 
         if artifact_id:

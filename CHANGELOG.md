@@ -82,9 +82,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `get_artifact(notebook_id, artifact_id)` for single-item retrieval
 - Old methods kept as deprecated wrappers with warnings
 
+### ⚠️ Beta Release Notice
+
+This is the initial public release of `notebooklm-py`. While core functionality is tested and working, please note:
+
+- **RPC Protocol Fragility**: This library uses reverse-engineered Google APIs. Method IDs can change without notice, potentially breaking functionality. See [Troubleshooting](docs/troubleshooting.md) for debugging guidance.
+- **Unofficial Status**: This is not affiliated with or endorsed by Google.
+- **API Stability**: The Python API may change in future releases as we refine the interface.
+
 ### Known Issues
-- Quiz and flashcard generation returns `None` (may require further RPC investigation)
-- RPC method IDs may change without notice (reverse-engineered API)
-- Both quiz and flashcard use type 4 internally, distinguished by title
+
+- **RPC method IDs may change**: Google can update their internal APIs at any time, breaking this library. Check the [RPC Protocol](docs/contributing/rpc-protocol.md) guide for how to identify and update method IDs.
+- **Rate limiting**: Heavy usage may trigger Google's rate limits. Add delays between bulk operations.
+- **Quiz/flashcard generation**: May return `None` in some cases (requires further RPC investigation).
+- **Authentication expiry**: CSRF tokens expire after some time. Re-run `notebooklm login` if you encounter auth errors.
+- **Large file uploads**: Files over 50MB may fail or timeout. Split large documents if needed.
 
 [0.1.0]: https://github.com/teng-lin/notebooklm-py/releases/tag/v0.1.0
