@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Research polling CLI commands** for LLM agent workflows:
+  - `notebooklm research status` - Check research progress (non-blocking)
+  - `notebooklm research wait --import-all` - Wait for completion and import sources
+  - `notebooklm source add-research --no-wait` - Start deep research without blocking
+  - Enables subagent pattern for long-running deep research operations
+
 ### Enhanced
 - **Multi-artifact downloads**: All download commands now support advanced multi-artifact features:
   - `download audio` - Download all audio overviews with intelligent selection

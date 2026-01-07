@@ -13,6 +13,7 @@ Command structure:
   notebooklm generate <type>          # Generate content
   notebooklm download <type>          # Download content
   notebooklm note <command>           # Note operations
+  notebooklm research <command>       # Research status/wait
 
 LLM-friendly design:
   # Set context once, then use simple commands
@@ -37,6 +38,7 @@ from .cli import (
     download,
     note,
     skill,
+    research,
     # Register functions for top-level commands
     register_session_commands,
     register_notebook_commands,
@@ -101,6 +103,7 @@ cli.add_command(generate)
 cli.add_command(download)
 cli.add_command(note)
 cli.add_command(skill)
+cli.add_command(research)
 
 
 # =============================================================================

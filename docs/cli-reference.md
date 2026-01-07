@@ -60,11 +60,18 @@ notebooklm [--storage PATH] [--version] <command> [OPTIONS] [ARGS]
 | `list` | - | - | `source list` |
 | `add <content>` | URL/file/text | - | `source add "https://..."` |
 | `add-drive <id> <title>` | Drive file ID | - | `source add-drive abc123 "Doc"` |
-| `add-research <query>` | Search query | `--mode [fast\|deep]` | `source add-research "AI" --mode deep` |
+| `add-research <query>` | Search query | `--mode [fast\|deep]`, `--no-wait` | `source add-research "AI" --mode deep --no-wait` |
 | `get <id>` | Source ID | - | `source get src123` |
 | `rename <id> <title>` | Source ID, new title | - | `source rename src123 "New Name"` |
 | `refresh <id>` | Source ID | - | `source refresh src123` |
 | `delete <id>` | Source ID | - | `source delete src123` |
+
+### Research Commands (`notebooklm research <cmd>`)
+
+| Command | Arguments | Options | Example |
+|---------|-----------|---------|---------|
+| `status` | - | `--json` | `research status` |
+| `wait` | - | `--timeout`, `--interval`, `--import-all`, `--json` | `research wait --import-all` |
 
 ### Generate Commands (`notebooklm generate <type>`)
 
@@ -238,9 +245,8 @@ notebooklm use abc123
 # 3. Add a starting source
 notebooklm source add "https://en.wikipedia.org/wiki/Climate_change"
 
-# 4. Research more sources automatically
-notebooklm source add-research "climate change policy 2024" --mode deep
-# Waits for research, shows discovered sources, imports them
+# 4. Research more sources automatically (blocking - waits up to 5 min)
+notebooklm source add-research "climate change policy 2024" --mode deep --import-all
 
 # 5. Generate a podcast
 notebooklm generate audio "Focus on policy solutions and future outlook" --format debate --wait
@@ -248,6 +254,31 @@ notebooklm generate audio "Focus on policy solutions and future outlook" --forma
 # 6. Download the result
 notebooklm download audio ./climate-podcast.mp3
 ```
+
+### Research → Podcast (Non-blocking with Subagent)
+
+For LLM agents, use non-blocking mode to avoid timeout:
+
+```bash
+# 1-3. Create notebook and add initial source (same as above)
+notebooklm create "Climate Change Research"
+notebooklm use abc123
+notebooklm source add "https://en.wikipedia.org/wiki/Climate_change"
+
+# 4. Start deep research (non-blocking)
+notebooklm source add-research "climate change policy 2024" --mode deep --no-wait
+# Returns immediately
+
+# 5. In a subagent, wait for research and import
+notebooklm research wait --import-all --timeout 300
+# Blocks until complete, then imports sources
+
+# 6. Continue with podcast generation...
+```
+
+**Research commands:**
+- `research status` - Check if research is in progress, completed, or not running
+- `research wait --import-all` - Block until research completes, then import sources
 
 ### Document Analysis → Study Materials
 
@@ -335,3 +366,5 @@ When using this CLI programmatically:
    - File paths → file upload
 
 6. **Error handling**: Commands exit with non-zero status on failure. Check stderr for error messages.
+
+7. **Deep research**: Use `--no-wait` with `source add-research --mode deep` to avoid blocking. Then use `research wait --import-all` in a subagent to wait for completion.

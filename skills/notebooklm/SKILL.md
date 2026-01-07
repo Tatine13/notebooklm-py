@@ -37,6 +37,8 @@ If commands fail with authentication errors, re-run `notebooklm login`.
 - `notebooklm source list` - list sources
 - `notebooklm artifact list` - list artifacts
 - `notebooklm artifact wait` - wait for completion (in subagent context)
+- `notebooklm research status` - check research status
+- `notebooklm research wait` - wait for research (in subagent context)
 - `notebooklm use <id>` - set context
 - `notebooklm create` - create notebook
 - `notebooklm ask "..."` - chat queries
@@ -47,6 +49,7 @@ If commands fail with authentication errors, re-run `notebooklm login`.
 - `notebooklm generate *` - long-running, may fail
 - `notebooklm download *` - writes to filesystem
 - `notebooklm artifact wait` - long-running (when in main conversation)
+- `notebooklm research wait` - long-running (when in main conversation)
 
 ## Quick Reference
 
@@ -61,6 +64,10 @@ If commands fail with authentication errors, re-run `notebooklm login`.
 | Add file | `notebooklm source add ./file.pdf` |
 | Add YouTube | `notebooklm source add "https://youtube.com/..."` |
 | List sources | `notebooklm source list` |
+| Web research (fast) | `notebooklm source add-research "query"` |
+| Web research (deep) | `notebooklm source add-research "query" --mode deep --no-wait` |
+| Check research status | `notebooklm research status` |
+| Wait for research | `notebooklm research wait --import-all` |
 | Chat | `notebooklm ask "question"` |
 | Generate podcast | `notebooklm generate audio "instructions"` |
 | Generate video | `notebooklm generate video "instructions"` |
@@ -140,6 +147,38 @@ When user wants full automation (generate and download when ready):
 **Source limits:** Max 50 sources per notebook
 **Supported types:** PDFs, YouTube URLs, web URLs, Google Docs, text files
 
+### Deep Web Research (Subagent Pattern)
+**Time:** 2-5 minutes, runs in background
+
+Deep research finds and analyzes web sources on a topic. Use non-blocking mode with a subagent:
+
+1. Create notebook: `notebooklm create "Research: [topic]"`
+2. Start deep research (non-blocking):
+   ```bash
+   notebooklm source add-research "topic query" --mode deep --no-wait
+   ```
+3. **Spawn a subagent** to wait and import:
+   ```bash
+   # Subagent runs:
+   notebooklm research wait --import-all --timeout 300
+   ```
+4. Main conversation continues while subagent waits
+5. When subagent completes, sources are imported automatically
+
+**Alternative (blocking):** For simple cases, omit `--no-wait`:
+```bash
+notebooklm source add-research "topic" --mode deep --import-all
+# Blocks for up to 5 minutes
+```
+
+**Research modes:**
+- `--mode fast`: Quick search, returns in seconds (default)
+- `--mode deep`: Thorough analysis, takes 2-5 minutes
+
+**Research sources:**
+- `--from web`: Search the web (default)
+- `--from drive`: Search Google Drive
+
 ## Output Style
 
 **Progress updates:** Brief status for each step
@@ -207,6 +246,7 @@ notebooklm artifact list --json
 notebooklm --help              # Main commands
 notebooklm notebook --help     # Notebook management
 notebooklm source --help       # Source management
+notebooklm research --help     # Research status/wait
 notebooklm generate --help     # Content generation
 notebooklm artifact --help     # Artifact management
 notebooklm download --help     # Download content

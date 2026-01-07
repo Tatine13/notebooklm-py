@@ -29,7 +29,7 @@ class SectionedGroup(click.Group):
     # Command groups - show sorted subcommands instead of help text
     command_groups = OrderedDict([
         ("Command Groups (use: notebooklm <group> <command>)",
-         ["source", "artifact", "note"]),
+         ["source", "artifact", "note", "research"]),
         ("Artifact Actions (use: notebooklm <action> <type>)",
          ["generate", "download"]),
     ])

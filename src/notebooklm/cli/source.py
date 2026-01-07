@@ -13,6 +13,7 @@ Commands:
     add-research Search web/drive and add sources from results
 """
 
+import asyncio
 from pathlib import Path
 
 import click
@@ -419,8 +420,15 @@ def source_add_drive(ctx, file_id, title, notebook_id, mime_type, client_auth):
     help="Search mode (default: fast)",
 )
 @click.option("--import-all", is_flag=True, help="Import all found sources")
+@click.option(
+    "--no-wait",
+    is_flag=True,
+    help="Start research and return immediately (use 'research status/wait' to monitor)",
+)
 @with_client
-def source_add_research(ctx, query, notebook_id, search_source, mode, import_all, client_auth):
+def source_add_research(
+    ctx, query, notebook_id, search_source, mode, import_all, no_wait, client_auth
+):
     """Search web or drive and add sources from results.
 
     \b
@@ -429,9 +437,8 @@ def source_add_research(ctx, query, notebook_id, search_source, mode, import_all
       source add-research "project docs" --from drive     # Search Google Drive
       source add-research "AI papers" --mode deep         # Deep search
       source add-research "tutorials" --import-all        # Auto-import all results
+      source add-research "topic" --mode deep --no-wait   # Non-blocking deep search
     """
-    import asyncio
-
     nb_id = require_notebook(notebook_id)
 
     async def _run():
@@ -446,6 +453,14 @@ def source_add_research(ctx, query, notebook_id, search_source, mode, import_all
 
             task_id = result["task_id"]
             console.print(f"[dim]Task ID: {task_id}[/dim]")
+
+            # Non-blocking mode: return immediately
+            if no_wait:
+                console.print(
+                    "[green]Research started.[/green] "
+                    "Use 'research status' or 'research wait' to monitor."
+                )
+                return
 
             status = None
             for _ in range(60):

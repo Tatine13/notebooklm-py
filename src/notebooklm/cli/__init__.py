@@ -22,6 +22,7 @@ from .generate import generate
 from .download import download
 from .note import note
 from .skill import skill
+from .research import research
 
 # Register functions (top-level command style)
 from .session import register_session_commands
@@ -85,6 +86,7 @@ __all__ = [
     "download",
     "note",
     "skill",
+    "research",
     # Register functions (top-level command style)
     "register_session_commands",
     "register_notebook_commands",
