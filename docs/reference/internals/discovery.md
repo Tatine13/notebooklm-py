@@ -141,13 +141,16 @@ params = [title, None, None, [2], [1]]
 
 ### ADD_SOURCE (URL)
 
+URL at position 7, same structure as YouTube.
 ```python
-source_data = [None, None, [url], None, None, None, None, None]
-params = [[[source_data]], notebook_id, [2], None, None]
+source_data = [None, None, None, None, None, None, None, [url], None, None, 1]
+settings = [1, None, None, None, None, None, None, None, None, None, [1]]
+params = [[[source_data]], notebook_id, [2], settings]
 ```
 
 ### ADD_SOURCE (YouTube)
 
+Same structure as regular URL.
 ```python
 source_data = [None, None, None, None, None, None, None, [url], None, None, 1]
 settings = [1, None, None, None, None, None, None, None, None, None, [1]]

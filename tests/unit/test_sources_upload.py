@@ -444,8 +444,8 @@ class TestAddUrlWithYouTube:
         # Check that the RPC was called with regular URL params
         call_args = mock_core.rpc_call.call_args
         params = call_args[0][1]
-        # Regular URL params have the URL at position [0][0][2]
-        assert params[0][0][2] == ["https://example.com/article"]
+        # Regular URL params have the URL at position [0][0][7] (same as YouTube)
+        assert params[0][0][7] == ["https://example.com/article"]
 
 
 # =============================================================================
@@ -490,6 +490,9 @@ class TestAddUrlSource:
         call_args = mock_core.rpc_call.call_args
         params = call_args[0][1]
 
-        # Verify structure: [[None, None, [url], ...]]
-        assert params[0][0][2] == ["https://example.com/page"]
+        # Verify structure matches documentation: URL at position 7, with settings array
+        assert params[0][0][7] == ["https://example.com/page"]
+        assert params[0][0][10] == 1  # Trailing indicator
         assert params[1] == "nb_123"
+        assert params[2] == [2]
+        assert params[3] == [1, None, None, None, None, None, None, None, None, None, [1]]

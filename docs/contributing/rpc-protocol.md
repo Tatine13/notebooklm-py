@@ -126,13 +126,15 @@ params = [
 All sources are added using the `izAoDd` RPC ID, but the internal `source_data` structure varies significantly by type.
 
 ### Regular Website URL
+URL goes at position 7 with trailing `1`, same structure as YouTube.
 ```python
-source_data = [None, None, [url], None, None, None, None, None]
-params = [[[source_data]], notebook_id, [2], None, None]
+source_data = [None, None, None, None, None, None, None, [url], None, None, 1]
+settings = [1, None, None, None, None, None, None, None, None, None, [1]]
+params = [[[source_data]], notebook_id, [2], settings]
 ```
 
 ### YouTube URL
-Note the different array position for the URL and the trailing `1`.
+Same structure as regular URL - URL at position 7 with trailing `1`.
 ```python
 source_data = [None, None, None, None, None, None, None, [url], None, None, 1]
 settings = [1, None, None, None, None, None, None, None, None, None, [1]]
