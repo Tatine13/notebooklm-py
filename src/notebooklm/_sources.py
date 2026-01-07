@@ -453,19 +453,17 @@ class SourcesAPI:
 
     async def _add_url_source(self, notebook_id: str, url: str) -> Any:
         """Add a regular URL as a source."""
-        # URL goes at position 7 in source array, with trailing 1
-        # Must include settings array as 4th param (same as YouTube)
         params = [
-            [[None, None, None, None, None, None, None, [url], None, None, 1]],
+            [[None, None, [url], None, None, None, None, None]],
             notebook_id,
             [2],
-            [1, None, None, None, None, None, None, None, None, None, [1]],
+            None,
+            None,
         ]
         return await self._core.rpc_call(
             RPCMethod.ADD_SOURCE,
             params,
             source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
         )
 
     async def _register_file_source(self, notebook_id: str, filename: str) -> str:
