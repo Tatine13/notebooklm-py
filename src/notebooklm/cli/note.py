@@ -13,6 +13,7 @@ import click
 from rich.table import Table
 
 from ..client import NotebookLMClient
+from ..types import Note
 from .helpers import (
     console,
     require_notebook,
@@ -33,33 +34,6 @@ def note():
       delete  Delete a note
     """
     pass
-
-
-def _parse_note(n: list) -> tuple[str, str, str]:
-    """Parse note structure and return (note_id, title, content).
-
-    GET_NOTES structure: [note_id, [note_id, content, metadata, None, title]]
-    - n[0] = note ID
-    - n[1][1] = content (or n[1] if string - old format)
-    - n[1][4] = title
-    """
-    note_id = str(n[0]) if len(n) > 0 and n[0] else "-"
-    content = ""
-    title = "Untitled"
-
-    if len(n) > 1:
-        if isinstance(n[1], str):
-            # Old format: [note_id, content]
-            content = n[1]
-        elif isinstance(n[1], list):
-            # New format: [note_id, [note_id, content, metadata, None, title]]
-            inner = n[1]
-            if len(inner) > 1 and isinstance(inner[1], str):
-                content = inner[1]
-            if len(inner) > 4 and isinstance(inner[4], str):
-                title = inner[4]
-
-    return note_id, title, content
 
 
 @note.command("list")
@@ -89,11 +63,12 @@ def note_list(ctx, notebook_id, client_auth):
             table.add_column("Preview", style="dim", max_width=50)
 
             for n in notes:
-                if isinstance(n, list) and len(n) > 0:
-                    note_id, title, content = _parse_note(n)
-                    preview = content[:50]
+                if isinstance(n, Note):
+                    preview = n.content[:50] if n.content else ""
                     table.add_row(
-                        note_id, title, preview + "..." if len(content) > 50 else preview
+                        n.id,
+                        n.title or "Untitled",
+                        preview + "..." if len(n.content or "") > 50 else preview
                     )
 
             console.print(table)
@@ -154,14 +129,10 @@ def note_get(ctx, note_id, notebook_id, client_auth):
         async with NotebookLMClient(client_auth) as client:
             n = await client.notes.get(nb_id, note_id)
 
-            if n:
-                if isinstance(n, list) and len(n) > 0:
-                    nid, title, content = _parse_note(n)
-                    console.print(f"[bold cyan]ID:[/bold cyan] {nid}")
-                    console.print(f"[bold cyan]Title:[/bold cyan] {title}")
-                    console.print(f"[bold cyan]Content:[/bold cyan]\n{content}")
-                else:
-                    console.print(n)
+            if n and isinstance(n, Note):
+                console.print(f"[bold cyan]ID:[/bold cyan] {n.id}")
+                console.print(f"[bold cyan]Title:[/bold cyan] {n.title or 'Untitled'}")
+                console.print(f"[bold cyan]Content:[/bold cyan]\n{n.content or ''}")
             else:
                 console.print("[yellow]Note not found[/yellow]")
 
@@ -215,18 +186,11 @@ def note_rename(ctx, note_id, new_title, notebook_id, client_auth):
         async with NotebookLMClient(client_auth) as client:
             # Get current note to preserve content
             n = await client.notes.get(nb_id, note_id)
-            if not n:
+            if not n or not isinstance(n, Note):
                 console.print("[yellow]Note not found[/yellow]")
                 return
 
-            # Extract content from note structure
-            content = ""
-            if len(n) > 1 and isinstance(n[1], list):
-                inner = n[1]
-                if len(inner) > 1 and isinstance(inner[1], str):
-                    content = inner[1]
-
-            await client.notes.update(nb_id, note_id, content=content, title=new_title)
+            await client.notes.update(nb_id, note_id, content=n.content or "", title=new_title)
             console.print(f"[green]Note renamed:[/green] {new_title}")
 
     return _run()

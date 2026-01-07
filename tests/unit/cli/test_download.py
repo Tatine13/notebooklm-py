@@ -1,14 +1,27 @@
 """Tests for download CLI commands."""
 
 import pytest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from click.testing import CliRunner
 
 from notebooklm.notebooklm_cli import cli
+from notebooklm.types import Artifact
 
 from .conftest import create_mock_client, patch_client_for_module
+
+
+def make_artifact(id: str, title: str, artifact_type: int, status: int = 3, created_at: datetime = None) -> Artifact:
+    """Create an Artifact for testing."""
+    return Artifact(
+        id=id,
+        title=title,
+        artifact_type=artifact_type,
+        status=status,
+        created_at=created_at or datetime.fromtimestamp(1234567890),
+    )
 
 
 @pytest.fixture
@@ -47,7 +60,7 @@ class TestDownloadAudio:
 
             # Set up artifacts namespace (pre-created by create_mock_client)
             mock_client.artifacts.list = AsyncMock(
-                return_value=[["audio_123", "My Audio", 1, 1234567890, 3]]
+                return_value=[make_artifact("audio_123", "My Audio", 1)]
             )
             mock_client.artifacts.download_audio = mock_download_audio
             mock_client_cls.return_value = mock_client
@@ -67,7 +80,7 @@ class TestDownloadAudio:
         with patch_client_for_module("download") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.artifacts.list = AsyncMock(
-                return_value=[["audio_123", "My Audio", 1, 1234567890, 3]]
+                return_value=[make_artifact("audio_123", "My Audio", 1)]
             )
             mock_client_cls.return_value = mock_client
 
@@ -115,7 +128,7 @@ class TestDownloadVideo:
 
             # Set up artifacts namespace (pre-created by create_mock_client)
             mock_client.artifacts.list = AsyncMock(
-                return_value=[["vid_1", "My Video", 3, 1234567890, 3]]
+                return_value=[make_artifact("vid_1", "My Video", 3)]
             )
             mock_client.artifacts.download_video = mock_download_video
             mock_client_cls.return_value = mock_client
@@ -150,7 +163,7 @@ class TestDownloadInfographic:
 
             # Set up artifacts namespace (pre-created by create_mock_client)
             mock_client.artifacts.list = AsyncMock(
-                return_value=[["info_1", "My Infographic", 7, 1234567890, 3]]
+                return_value=[make_artifact("info_1", "My Infographic", 7)]
             )
             mock_client.artifacts.download_infographic = mock_download_infographic
             mock_client_cls.return_value = mock_client
@@ -186,7 +199,7 @@ class TestDownloadSlideDeck:
 
             # Set up artifacts namespace (pre-created by create_mock_client)
             mock_client.artifacts.list = AsyncMock(
-                return_value=[["slide_1", "My Slides", 8, 1234567890, 3]]
+                return_value=[make_artifact("slide_1", "My Slides", 8)]
             )
             mock_client.artifacts.download_slide_deck = mock_download_slide_deck
             mock_client_cls.return_value = mock_client
@@ -222,8 +235,8 @@ class TestDownloadFlags:
             # Set up artifacts namespace (pre-created by create_mock_client)
             mock_client.artifacts.list = AsyncMock(
                 return_value=[
-                    ["audio_old", "Old Audio", 1, 1000000000, 3],
-                    ["audio_new", "New Audio", 1, 2000000000, 3],
+                    make_artifact("audio_old", "Old Audio", 1, created_at=datetime.fromtimestamp(1000000000)),
+                    make_artifact("audio_new", "New Audio", 1, created_at=datetime.fromtimestamp(2000000000)),
                 ]
             )
             mock_client.artifacts.download_audio = mock_download_audio
@@ -253,8 +266,8 @@ class TestDownloadFlags:
             # Set up artifacts namespace (pre-created by create_mock_client)
             mock_client.artifacts.list = AsyncMock(
                 return_value=[
-                    ["audio_old", "Old Audio", 1, 1000000000, 3],
-                    ["audio_new", "New Audio", 1, 2000000000, 3],
+                    make_artifact("audio_old", "Old Audio", 1, created_at=datetime.fromtimestamp(1000000000)),
+                    make_artifact("audio_new", "New Audio", 1, created_at=datetime.fromtimestamp(2000000000)),
                 ]
             )
             mock_client.artifacts.download_audio = mock_download_audio
@@ -284,7 +297,7 @@ class TestDownloadFlags:
 
             # Set up artifacts namespace (pre-created by create_mock_client)
             mock_client.artifacts.list = AsyncMock(
-                return_value=[["audio_123", "Audio", 1, 1234567890, 3]]
+                return_value=[make_artifact("audio_123", "Audio", 1)]
             )
             mock_client.artifacts.download_audio = mock_download_audio
             mock_client_cls.return_value = mock_client
@@ -305,7 +318,7 @@ class TestDownloadFlags:
         with patch_client_for_module("download") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.artifacts.list = AsyncMock(
-                return_value=[["audio_123", "Audio", 1, 1234567890, 3]]
+                return_value=[make_artifact("audio_123", "Audio", 1)]
             )
 
             output_file = tmp_path / "audio.mp3"

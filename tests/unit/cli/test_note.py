@@ -6,8 +6,19 @@ from unittest.mock import AsyncMock, patch
 from click.testing import CliRunner
 
 from notebooklm.notebooklm_cli import cli
+from notebooklm.types import Note
 
 from .conftest import create_mock_client, patch_client_for_module
+
+
+def make_note(id: str, title: str, content: str, notebook_id: str = "nb_123") -> Note:
+    """Create a Note for testing."""
+    return Note(
+        id=id,
+        notebook_id=notebook_id,
+        title=title,
+        content=content,
+    )
 
 
 @pytest.fixture
@@ -39,8 +50,8 @@ class TestNoteList:
             mock_client = create_mock_client()
             mock_client.notes.list = AsyncMock(
                 return_value=[
-                    ["note_1", ["note_1", "Content 1", None, None, "Note Title"]],
-                    ["note_2", ["note_2", "Content 2", None, None, "Another Note"]],
+                    make_note("note_1", "Note Title", "Content 1"),
+                    make_note("note_2", "Another Note", "Content 2"),
                 ]
             )
             mock_client_cls.return_value = mock_client
@@ -127,7 +138,7 @@ class TestNoteGet:
         with patch_client_for_module("note") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.notes.get = AsyncMock(
-                return_value=["note_123", ["note_123", "This is the content", None, None, "My Note"]]
+                return_value=make_note("note_123", "My Note", "This is the content")
             )
             mock_client_cls.return_value = mock_client
 
@@ -212,7 +223,7 @@ class TestNoteRename:
         with patch_client_for_module("note") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.notes.get = AsyncMock(
-                return_value=["note_123", ["note_123", "Original content", None, None, "Old Title"]]
+                return_value=make_note("note_123", "Old Title", "Original content")
             )
             mock_client.notes.update = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client

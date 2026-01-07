@@ -15,6 +15,7 @@ import click
 
 from ..auth import AuthTokens, load_auth_from_storage, fetch_tokens
 from ..client import NotebookLMClient
+from ..types import Artifact
 from .helpers import (
     console,
     run_async,
@@ -117,30 +118,29 @@ async def _download_artifacts_generic(
             # Fetch artifacts
             all_artifacts = await client.artifacts.list(nb_id)
 
-            # Filter by type and status=3 (completed)
-            type_artifacts_raw = [
+            # Filter by type and completed status
+            completed_artifacts = [
                 a
                 for a in all_artifacts
-                if isinstance(a, list)
-                and len(a) > 4
-                and a[2] == artifact_type_id
-                and a[4] == 3
+                if isinstance(a, Artifact)
+                and a.artifact_type == artifact_type_id
+                and a.is_completed
             ]
 
-            if not type_artifacts_raw:
+            if not completed_artifacts:
                 return {
                     "error": f"No completed {artifact_type_name} artifacts found",
                     "suggestion": f"Generate one with: notebooklm generate {artifact_type_name}",
                 }
 
-            # Convert to dict format
+            # Convert to dict format for selection logic
             type_artifacts = [
                 {
-                    "id": a[0],
-                    "title": a[1],
-                    "created_at": a[3] if len(a) > 3 else 0,
+                    "id": a.id,
+                    "title": a.title,
+                    "created_at": a.created_at.timestamp() if a.created_at else 0,
                 }
-                for a in type_artifacts_raw
+                for a in completed_artifacts
             ]
 
             # Helper for file/dir conflict resolution
