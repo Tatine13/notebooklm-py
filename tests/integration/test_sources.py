@@ -1,5 +1,8 @@
 """Integration tests for SourcesAPI."""
 
+import re
+import urllib.parse
+
 import pytest
 from pytest_httpx import HTTPXMock
 
@@ -342,3 +345,199 @@ class TestSourcesAPI:
 
         request = httpx_mock.get_request()
         assert "b7Wfje" in str(request.url)
+
+
+class TestAddFileSource:
+    """Integration tests for file upload functionality."""
+
+    @pytest.mark.asyncio
+    async def test_add_file_success(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+        tmp_path,
+    ):
+        """Test successful file upload with 3-step protocol."""
+        # Create test file
+        test_file = tmp_path / "test_document.txt"
+        test_file.write_text("This is test content for upload.")
+
+        # Step 1: Mock RPC registration response (o4cbdc)
+        rpc_response = build_rpc_response(
+            "o4cbdc",
+            [
+                [
+                    [["file_source_123"], "test_document.txt", [None, None, None, None, 0]]
+                ]
+            ],
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*"),
+            content=rpc_response.encode(),
+        )
+
+        # Step 2: Mock upload session start response
+        httpx_mock.add_response(
+            url=re.compile(r".*upload/_/\?authuser=0$"),
+            headers={
+                "x-goog-upload-url": "https://notebooklm.google.com/upload/_/?authuser=0&upload_id=test_upload_id",
+                "x-goog-upload-status": "active",
+            },
+            content=b"",
+        )
+
+        # Step 3: Mock upload finalize response
+        httpx_mock.add_response(
+            url=re.compile(r".*upload/_/\?authuser=0&upload_id=.*"),
+            content=b"OK: Enqueued blob bytes to spanner queue for processing.",
+        )
+
+        async with NotebookLMClient(auth_tokens) as client:
+            source = await client.sources.add_file("nb_123", test_file)
+
+        assert source is not None
+        assert source.id == "file_source_123"
+        assert source.title == "test_document.txt"
+        assert source.source_type == "upload"
+
+        # Verify all 3 requests were made
+        requests = httpx_mock.get_requests()
+        assert len(requests) == 3
+
+        # Verify Step 1: RPC call
+        assert "o4cbdc" in str(requests[0].url)
+
+        # Verify Step 2: Upload start
+        assert "x-goog-upload-command" in requests[1].headers
+        assert requests[1].headers["x-goog-upload-command"] == "start"
+
+        # Verify Step 3: Upload finalize
+        assert "x-goog-upload-command" in requests[2].headers
+        assert requests[2].headers["x-goog-upload-command"] == "upload, finalize"
+
+    @pytest.mark.asyncio
+    async def test_add_file_rpc_params_format(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+        tmp_path,
+    ):
+        """Test that file registration uses correct parameter nesting."""
+        test_file = tmp_path / "my_file.pdf"
+        test_file.write_bytes(b"%PDF-1.4 fake pdf content")
+
+        # Mock all 3 responses
+        rpc_response = build_rpc_response(
+            "o4cbdc",
+            [[[[" src_id"], "my_file.pdf", [None, None, None, None, 0]]]],
+        )
+        httpx_mock.add_response(url=re.compile(r".*batchexecute.*"), content=rpc_response.encode())
+        httpx_mock.add_response(
+            url=re.compile(r".*upload/_/\?authuser=0$"),
+            headers={"x-goog-upload-url": "https://notebooklm.google.com/upload/_/?upload_id=x"},
+        )
+        httpx_mock.add_response(url=re.compile(r".*upload_id=.*"), content=b"OK")
+
+        async with NotebookLMClient(auth_tokens) as client:
+            await client.sources.add_file("nb_123", test_file)
+
+        # Check the RPC request body contains correct nesting
+        # params[0] should be [[filename]] (double-nested within the param)
+        # In the full params array JSON: [[[filename]], nb_id, ...] (3 brackets total)
+        # NOT [[[[filename]]], ...] (4 brackets - the old bug)
+        rpc_request = httpx_mock.get_requests()[0]
+        body = urllib.parse.unquote(rpc_request.content.decode())
+        # The params are JSON-encoded inside the RPC wrapper, so quotes are escaped
+        # Verify 3 brackets (correct) not 4 brackets (bug)
+        assert '[[[\\"my_file.pdf\\"]]' in body, f"Expected 3 brackets, got: {body}"
+        assert '[[[[\\"my_file.pdf\\"]]' not in body, "Should not have 4 brackets (old bug)"
+
+    @pytest.mark.asyncio
+    async def test_add_file_not_found(
+        self,
+        auth_tokens,
+        tmp_path,
+    ):
+        """Test file upload with non-existent file."""
+        nonexistent = tmp_path / "does_not_exist.txt"
+
+        async with NotebookLMClient(auth_tokens) as client:
+            with pytest.raises(FileNotFoundError):
+                await client.sources.add_file("nb_123", nonexistent)
+
+    @pytest.mark.asyncio
+    async def test_add_file_upload_metadata(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+        tmp_path,
+    ):
+        """Test that upload session includes correct metadata."""
+        test_file = tmp_path / "document.txt"
+        content = "Test content " * 100
+        test_file.write_text(content)
+
+        rpc_response = build_rpc_response(
+            "o4cbdc",
+            [[[["src_abc"], "document.txt", [None, None, None, None, 0]]]],
+        )
+        httpx_mock.add_response(url=re.compile(r".*batchexecute.*"), content=rpc_response.encode())
+        httpx_mock.add_response(
+            url=re.compile(r".*upload/_/\?authuser=0$"),
+            headers={"x-goog-upload-url": "https://notebooklm.google.com/upload/_/?upload_id=y"},
+        )
+        httpx_mock.add_response(url=re.compile(r".*upload_id=.*"), content=b"OK")
+
+        async with NotebookLMClient(auth_tokens) as client:
+            await client.sources.add_file("nb_123", test_file)
+
+        # Check upload start request (Step 2)
+        start_request = httpx_mock.get_requests()[1]
+
+        # Verify headers
+        assert start_request.headers["x-goog-upload-protocol"] == "resumable"
+        assert start_request.headers["x-goog-upload-header-content-length"] == str(len(content))
+
+        # Verify body contains metadata
+        import json
+        body = json.loads(start_request.content.decode())
+        assert body["PROJECT_ID"] == "nb_123"
+        assert body["SOURCE_NAME"] == "document.txt"
+        assert body["SOURCE_ID"] == "src_abc"
+
+    @pytest.mark.asyncio
+    async def test_add_file_content_upload(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+        tmp_path,
+    ):
+        """Test that file content is correctly uploaded."""
+        test_file = tmp_path / "binary_file.bin"
+        binary_content = b"\x00\x01\x02\x03\xff\xfe\xfd"
+        test_file.write_bytes(binary_content)
+
+        rpc_response = build_rpc_response(
+            "o4cbdc",
+            [[[["src_bin"], "binary_file.bin", [None, None, None, None, 0]]]],
+        )
+        httpx_mock.add_response(url=re.compile(r".*batchexecute.*"), content=rpc_response.encode())
+        httpx_mock.add_response(
+            url=re.compile(r".*upload/_/\?authuser=0$"),
+            headers={"x-goog-upload-url": "https://notebooklm.google.com/upload/_/?upload_id=z"},
+        )
+        httpx_mock.add_response(url=re.compile(r".*upload_id=.*"), content=b"OK")
+
+        async with NotebookLMClient(auth_tokens) as client:
+            await client.sources.add_file("nb_123", test_file)
+
+        # Check upload content request (Step 3)
+        upload_request = httpx_mock.get_requests()[2]
+
+        # Verify the actual content was sent
+        assert upload_request.content == binary_content
+        assert upload_request.headers["x-goog-upload-offset"] == "0"
