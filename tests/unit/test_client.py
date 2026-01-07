@@ -128,6 +128,12 @@ class TestFromStorage:
         if not DEFAULT_STORAGE_PATH.parent.exists():
             DEFAULT_STORAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+        # IMPORTANT: Back up existing auth file if it exists
+        backup_path = DEFAULT_STORAGE_PATH.with_suffix(".json.bak")
+        had_existing_file = DEFAULT_STORAGE_PATH.exists()
+        if had_existing_file:
+            backup_path.write_text(DEFAULT_STORAGE_PATH.read_text())
+
         storage_state = {
             "cookies": [
                 {"name": "SID", "value": "default_sid", "domain": ".google.com"},
@@ -146,8 +152,11 @@ class TestFromStorage:
         except PermissionError:
             pytest.skip("Cannot write to default storage path")
         finally:
-            # Clean up
-            if DEFAULT_STORAGE_PATH.exists():
+            # Restore original file or clean up test file
+            if had_existing_file:
+                DEFAULT_STORAGE_PATH.write_text(backup_path.read_text())
+                backup_path.unlink()
+            elif DEFAULT_STORAGE_PATH.exists():
                 DEFAULT_STORAGE_PATH.unlink()
 
 
