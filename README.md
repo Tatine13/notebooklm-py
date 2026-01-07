@@ -8,6 +8,8 @@ Automate Google NotebookLM programmatically. Create notebooks, add sources, chat
 [![Python Version](https://img.shields.io/pypi/pyversions/notebooklm-py.svg)](https://pypi.org/project/notebooklm-py/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> **⚠️ Beta Software**: This library uses reverse-engineered Google APIs that can change without notice. See [Troubleshooting](docs/troubleshooting.md) if you encounter issues.
+
 ## Installation
 
 ```bash

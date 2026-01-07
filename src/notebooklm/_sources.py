@@ -1,6 +1,7 @@
 """Source operations API."""
 
 import asyncio
+import logging
 import re
 import httpx
 from datetime import datetime
@@ -9,6 +10,8 @@ from time import monotonic
 from typing import Any, Dict, List, Optional, Union
 
 from ._core import ClientCore
+
+logger = logging.getLogger(__name__)
 from .rpc import RPCMethod, UPLOAD_URL
 from .rpc.types import SourceStatus
 from .types import (
@@ -59,14 +62,17 @@ class SourcesAPI:
         )
 
         if not notebook or not isinstance(notebook, list) or len(notebook) == 0:
+            logger.debug("Empty or invalid notebook response when listing sources")
             return []
 
         nb_info = notebook[0]
         if not isinstance(nb_info, list) or len(nb_info) <= 1:
+            logger.debug("Invalid notebook structure: expected list with sources at index 1")
             return []
 
         sources_list = nb_info[1]
         if not isinstance(sources_list, list):
+            logger.debug("Sources list is not a list type: %s", type(sources_list))
             return []
 
         # Convert raw source data to Source objects
@@ -115,11 +121,15 @@ class SourcesAPI:
                             pass
 
                 # Extract status from src[3][1]
-                # Status codes: 1=processing, 2=ready, 3=error
+                # See SourceStatus enum for valid values
                 status = SourceStatus.READY  # Default to ready
                 if len(src) > 3 and isinstance(src[3], list) and len(src[3]) > 1:
                     status_code = src[3][1]
-                    if isinstance(status_code, int) and status_code in (1, 2, 3):
+                    if status_code in (
+                        SourceStatus.PROCESSING,
+                        SourceStatus.READY,
+                        SourceStatus.ERROR,
+                    ):
                         status = status_code
 
                 sources.append(Source(

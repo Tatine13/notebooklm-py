@@ -96,6 +96,7 @@ class StudioContentType(int, Enum):
     """Types of studio content that can be generated.
 
     These are integer codes used in the R7cb6c RPC call.
+    Values correspond to artifact_data[2] in API responses.
     """
 
     AUDIO = 1
@@ -108,6 +109,17 @@ class StudioContentType(int, Enum):
     INFOGRAPHIC = 7
     SLIDE_DECK = 8
     DATA_TABLE = 9
+
+
+class ArtifactStatus(int, Enum):
+    """Processing status of an artifact.
+
+    Values correspond to artifact_data[4] in API responses.
+    """
+
+    PROCESSING = 1  # Artifact is being generated
+    PENDING = 2  # Artifact is queued
+    COMPLETED = 3  # Artifact is ready for use/download
 
 
 class AudioFormat(int, Enum):

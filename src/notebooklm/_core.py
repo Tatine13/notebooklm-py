@@ -30,6 +30,9 @@ from .rpc import (
 # Maximum number of conversations to cache (FIFO eviction)
 MAX_CONVERSATION_CACHE_SIZE = 100
 
+# Default HTTP timeout in seconds
+DEFAULT_TIMEOUT = 30.0
+
 
 class ClientCore:
     """Core client infrastructure for HTTP and RPC operations.
@@ -44,13 +47,15 @@ class ClientCore:
     ArtifactsAPI, etc.) and should not be used directly.
     """
 
-    def __init__(self, auth: AuthTokens):
+    def __init__(self, auth: AuthTokens, timeout: float = DEFAULT_TIMEOUT):
         """Initialize the core client.
 
         Args:
             auth: Authentication tokens from browser login.
+            timeout: HTTP request timeout in seconds. Defaults to 30 seconds.
         """
         self.auth = auth
+        self._timeout = timeout
         self._http_client: Optional[httpx.AsyncClient] = None
         # Request ID counter for chat API (must be unique per request)
         self._reqid_counter: int = 100000
@@ -68,7 +73,7 @@ class ClientCore:
                     "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
                     "Cookie": self.auth.cookie_header,
                 },
-                timeout=30.0,
+                timeout=self._timeout,
             )
 
     async def close(self) -> None:

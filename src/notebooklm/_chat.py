@@ -5,12 +5,15 @@ retrieving conversation history.
 """
 
 import json
+import logging
 import os
 import uuid
 from typing import Any, Optional
 from urllib.parse import urlencode, quote
 
 from ._core import ClientCore
+
+logger = logging.getLogger(__name__)
 from .rpc import RPCMethod, QUERY_URL
 from .types import AskResult, ConversationTurn
 
@@ -337,6 +340,11 @@ class ChatAPI:
                     longest_answer = text
                 i += 1
 
+        if not longest_answer:
+            logger.debug(
+                "No answer extracted from response (%d lines parsed)",
+                len(lines),
+            )
         return longest_answer
 
     def _extract_answer_from_chunk(self, json_str: str) -> tuple[Optional[str], bool]:
