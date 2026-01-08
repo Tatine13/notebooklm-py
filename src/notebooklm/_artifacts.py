@@ -8,12 +8,12 @@ Quizzes, Flashcards, Infographics, Slide Decks, Data Tables, and Mind Maps.
 import asyncio
 import logging
 import os
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 from ._core import ClientCore
-from .auth import download_with_browser, download_urls_with_browser
+from .auth import load_httpx_cookies
 import httpx
 
 from .rpc import (
@@ -1024,12 +1024,9 @@ class ArtifactsAPI:
                         path = os.path.join(output_dir, filename)
                         urls_and_paths.append((url, path))
 
-            if urls_and_paths and self._needs_browser_download(urls_and_paths[0][0]):
-                downloaded_paths = await download_urls_with_browser(urls_and_paths)
-            else:
-                for url, path in urls_and_paths:
-                    await self._download_url(url, path)
-                    downloaded_paths.append(path)
+            # Try authenticated httpx batch download first
+            if urls_and_paths:
+                downloaded_paths = await self._download_urls_batch(urls_and_paths)
 
         except (IndexError, TypeError) as e:
             raise ValueError(f"Failed to parse slide deck structure: {e}")
@@ -1386,36 +1383,88 @@ class ArtifactsAPI:
 
         return source_ids
 
-    def _needs_browser_download(self, url: str) -> bool:
-        """Check if URL requires browser-based download."""
-        browser_domains = [
-            "lh3.googleusercontent.com",
-            "contribution.usercontent.google.com",
-        ]
-        return any(domain in url for domain in browser_domains)
+    async def _download_urls_batch(
+        self, urls_and_paths: List[Tuple[str, str]]
+    ) -> List[str]:
+        """Download multiple files using httpx with proper cookie handling.
+
+        Args:
+            urls_and_paths: List of (url, output_path) tuples.
+
+        Returns:
+            List of successfully downloaded output paths.
+        """
+        from pathlib import Path
+
+        downloaded: List[str] = []
+
+        # Load cookies with domain info for cross-domain redirect handling
+        cookies = load_httpx_cookies()
+
+        async with httpx.AsyncClient(
+            cookies=cookies,
+            follow_redirects=True,
+            timeout=60.0,
+        ) as client:
+            for url, output_path in urls_and_paths:
+                try:
+                    response = await client.get(url)
+                    response.raise_for_status()
+
+                    content_type = response.headers.get("content-type", "")
+                    if "text/html" in content_type:
+                        raise ValueError("Received HTML instead of media file")
+
+                    output_file = Path(output_path)
+                    output_file.parent.mkdir(parents=True, exist_ok=True)
+                    output_file.write_bytes(response.content)
+                    downloaded.append(output_path)
+                    logger.debug("Downloaded %s (%d bytes)", url[:60], len(response.content))
+
+                except (httpx.HTTPError, ValueError) as e:
+                    logger.warning("Download failed for %s: %s", url[:60], e)
+
+        return downloaded
 
     async def _download_url(self, url: str, output_path: str) -> str:
-        """Download a file from URL."""
-        import httpx
+        """Download a file from URL using httpx with proper cookie handling.
 
-        if self._needs_browser_download(url):
-            return await download_with_browser(url, output_path)
+        Args:
+            url: URL to download from.
+            output_path: Path to save the file.
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, follow_redirects=True)
+        Returns:
+            The output path on success.
+
+        Raises:
+            ValueError: If download fails or authentication expired.
+        """
+        from pathlib import Path
+
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load cookies with domain info for cross-domain redirect handling
+        cookies = load_httpx_cookies()
+
+        async with httpx.AsyncClient(
+            cookies=cookies,
+            follow_redirects=True,
+            timeout=60.0,
+        ) as client:
+            response = await client.get(url)
             response.raise_for_status()
 
             content_type = response.headers.get("content-type", "")
             if "text/html" in content_type:
                 raise ValueError(
                     "Download failed: received HTML instead of media file. "
-                    "Authentication may have expired."
+                    "Authentication may have expired. Run 'notebooklm login'."
                 )
 
-            with open(output_path, "wb") as f:
-                f.write(response.content)
-
-        return output_path
+            output_file.write_bytes(response.content)
+            logger.debug("Downloaded %s (%d bytes)", url[:60], len(response.content))
+            return output_path
 
     def _parse_generation_result(self, result: Any) -> GenerationStatus:
         """Parse generation API result into GenerationStatus."""

@@ -356,34 +356,64 @@ class TestAuthTokensFromStorage:
 
 
 # =============================================================================
-# BROWSER DOWNLOAD FUNCTIONS TESTS
+# COOKIE DOMAIN VALIDATION TESTS
 # =============================================================================
 
 
-class TestDownloadUrlsWithBrowser:
-    """Test download_urls_with_browser function."""
+class TestIsAllowedCookieDomain:
+    """Test cookie domain validation security."""
 
-    @pytest.mark.asyncio
-    async def test_download_urls_empty_list(self):
-        """Test returns empty list when given empty input."""
-        from notebooklm.auth import download_urls_with_browser
+    def test_accepts_exact_matches_from_allowlist(self):
+        """Test accepts domains in ALLOWED_COOKIE_DOMAINS."""
+        from notebooklm.auth import _is_allowed_cookie_domain
 
-        result = await download_urls_with_browser([])
-        assert result == []
+        assert _is_allowed_cookie_domain(".google.com") is True
+        assert _is_allowed_cookie_domain("notebooklm.google.com") is True
+        assert _is_allowed_cookie_domain(".googleusercontent.com") is True
+
+    def test_accepts_valid_google_subdomains(self):
+        """Test accepts legitimate Google subdomains."""
+        from notebooklm.auth import _is_allowed_cookie_domain
+
+        assert _is_allowed_cookie_domain("lh3.google.com") is True
+        assert _is_allowed_cookie_domain("accounts.google.com") is True
+        assert _is_allowed_cookie_domain("www.google.com") is True
+
+    def test_accepts_googleusercontent_subdomains(self):
+        """Test accepts googleusercontent.com subdomains."""
+        from notebooklm.auth import _is_allowed_cookie_domain
+
+        assert _is_allowed_cookie_domain("lh3.googleusercontent.com") is True
+        assert _is_allowed_cookie_domain("drum.usercontent.google.com") is True
+
+    def test_rejects_malicious_lookalike_domains(self):
+        """Test rejects domains like 'evil-google.com' that end with google.com."""
+        from notebooklm.auth import _is_allowed_cookie_domain
+
+        # These domains end with ".google.com" but are NOT subdomains
+        assert _is_allowed_cookie_domain("evil-google.com") is False
+        assert _is_allowed_cookie_domain("malicious-google.com") is False
+        assert _is_allowed_cookie_domain("fakegoogle.com") is False
+
+    def test_rejects_fake_googleusercontent_domains(self):
+        """Test rejects fake googleusercontent domains."""
+        from notebooklm.auth import _is_allowed_cookie_domain
+
+        assert _is_allowed_cookie_domain("evil-googleusercontent.com") is False
+        assert _is_allowed_cookie_domain("fakegoogleusercontent.com") is False
+
+    def test_rejects_unrelated_domains(self):
+        """Test rejects completely unrelated domains."""
+        from notebooklm.auth import _is_allowed_cookie_domain
+
+        assert _is_allowed_cookie_domain("example.com") is False
+        assert _is_allowed_cookie_domain("evil.com") is False
+        assert _is_allowed_cookie_domain("google.evil.com") is False
 
 
-class TestBrowserProfileDir:
-    """Test browser profile directory constant."""
-
-    def test_browser_profile_dir_exists(self):
-        """Test BROWSER_PROFILE_DIR constant is defined."""
-        from notebooklm.auth import BROWSER_PROFILE_DIR
-        from pathlib import Path
-
-        assert BROWSER_PROFILE_DIR is not None
-        assert isinstance(BROWSER_PROFILE_DIR, Path)
-        assert ".notebooklm" in str(BROWSER_PROFILE_DIR)
-        assert "browser_profile" in str(BROWSER_PROFILE_DIR)
+# =============================================================================
+# CONSTANT TESTS
+# =============================================================================
 
 
 class TestDefaultStoragePath:
