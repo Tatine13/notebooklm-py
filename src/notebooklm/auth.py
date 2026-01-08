@@ -8,9 +8,8 @@ This module provides authentication utilities for the NotebookLM client:
 2. **Token Extraction**: Fetches CSRF (SNlM0e) and session (FdrFJe) tokens from
    the NotebookLM homepage, required for all RPC calls.
 
-3. **Browser-based Downloads**: Uses persistent Playwright browser context for
-   downloading media files from Google content servers that require cross-domain
-   authentication.
+3. **Download Cookies**: Provides httpx-compatible cookies with domain info for
+   authenticated downloads from Google content servers.
 
 Usage:
     # Recommended: Use AuthTokens.from_storage() for full initialization
@@ -18,12 +17,13 @@ Usage:
     async with NotebookLMClient(auth) as client:
         ...
 
-    # For downloads requiring browser authentication
-    await download_with_browser(url, output_path)
+    # For authenticated downloads
+    cookies = load_httpx_cookies()
+    async with httpx.AsyncClient(cookies=cookies) as client:
+        response = await client.get(url)
 
 Security Notes:
     - Storage state files contain sensitive session cookies
-    - Browser profile directory stores persistent login state
     - Path traversal protection is enforced on all file operations
 """
 
@@ -34,15 +34,17 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-import logging
-
-logger = logging.getLogger(__name__)
 
 # Minimum required cookies (must have at least SID for basic auth)
 MINIMUM_REQUIRED_COOKIES = {"SID"}
 
 # Cookie domains to extract from storage state
-ALLOWED_COOKIE_DOMAINS = {".google.com", "notebooklm.google.com"}
+# Includes googleusercontent.com for authenticated media downloads
+ALLOWED_COOKIE_DOMAINS = {
+    ".google.com",
+    "notebooklm.google.com",
+    ".googleusercontent.com",
+}
 
 # Default path for Playwright storage state (shared with notebooklm-tools skill)
 DEFAULT_STORAGE_PATH = Path.home() / ".notebooklm" / "storage_state.json"
@@ -103,8 +105,9 @@ class AuthTokens:
 def extract_cookies_from_storage(storage_state: dict[str, Any]) -> dict[str, str]:
     """Extract Google cookies from Playwright storage state for NotebookLM auth.
 
-    Filters cookies to only include those from .google.com and notebooklm.google.com
-    domains, as these are the only ones needed for API authentication.
+    Filters cookies to include those from .google.com, notebooklm.google.com,
+    and .googleusercontent.com domains. The googleusercontent.com cookies are
+    needed for authenticated media downloads.
 
     Args:
         storage_state: Parsed JSON from Playwright's storage state file.
@@ -227,6 +230,90 @@ def load_auth_from_storage(path: Optional[Path] = None) -> dict[str, str]:
     return extract_cookies_from_storage(storage_state)
 
 
+def _is_allowed_cookie_domain(domain: str) -> bool:
+    """Check if a cookie domain is allowed for downloads.
+
+    Uses suffix matching with leading dots to ensure proper subdomain validation.
+    The leading dot in suffixes (e.g., '.google.com') provides the boundary check:
+    - 'lh3.google.com' ends with '.google.com' → True (valid subdomain)
+    - 'evil-google.com' does NOT end with '.google.com' → False (not a subdomain)
+
+    Args:
+        domain: Cookie domain to check (e.g., '.google.com', 'lh3.google.com')
+
+    Returns:
+        True if domain is allowed for downloads.
+    """
+    # Exact match against the primary allowlist
+    if domain in ALLOWED_COOKIE_DOMAINS:
+        return True
+
+    # Suffixes for allowed download domains (leading dot provides boundary check)
+    allowed_suffixes = (
+        ".google.com",
+        ".googleusercontent.com",
+        ".usercontent.google.com",
+    )
+
+    # Check if domain matches or is a subdomain of allowed suffixes
+    for suffix in allowed_suffixes:
+        if domain == suffix or domain.endswith(suffix):
+            return True
+
+    return False
+
+
+def load_httpx_cookies(path: Optional[Path] = None) -> "httpx.Cookies":
+    """Load cookies as an httpx.Cookies object for authenticated downloads.
+
+    Unlike load_auth_from_storage() which returns a simple dict, this function
+    returns a proper httpx.Cookies object with domain information preserved.
+    This is required for downloads that follow redirects across Google domains.
+
+    Args:
+        path: Path to storage_state.json. If None, uses ~/.notebooklm/storage_state.json.
+
+    Returns:
+        httpx.Cookies object with all Google cookies.
+
+    Raises:
+        FileNotFoundError: If storage file doesn't exist.
+        ValueError: If required cookies are missing.
+    """
+    storage_path = path or DEFAULT_STORAGE_PATH
+
+    if not storage_path.exists():
+        raise FileNotFoundError(
+            f"Storage file not found: {storage_path}\n"
+            f"Run 'notebooklm login' to authenticate first."
+        )
+
+    storage_state = json.loads(storage_path.read_text())
+
+    cookies = httpx.Cookies()
+    cookie_names = set()
+
+    for cookie in storage_state.get("cookies", []):
+        domain = cookie.get("domain", "")
+        name = cookie.get("name", "")
+        value = cookie.get("value", "")
+
+        # Only include cookies from explicitly allowed domains
+        if _is_allowed_cookie_domain(domain) and name and value:
+            cookies.set(name, value, domain=domain)
+            cookie_names.add(name)
+
+    # Validate that essential cookies are present
+    missing = MINIMUM_REQUIRED_COOKIES - cookie_names
+    if missing:
+        raise ValueError(
+            f"Missing required cookies for downloads: {missing}\n"
+            f"Run 'notebooklm login' to re-authenticate."
+        )
+
+    return cookies
+
+
 async def fetch_tokens(cookies: dict[str, str]) -> tuple[str, str]:
     """Fetch CSRF token and session ID from NotebookLM homepage.
 
@@ -268,206 +355,3 @@ async def fetch_tokens(cookies: dict[str, str]) -> tuple[str, str]:
         session_id = extract_session_id_from_html(response.text, final_url)
 
         return csrf, session_id
-
-
-# Browser profile directory for persistent login
-BROWSER_PROFILE_DIR = Path.home() / ".notebooklm" / "browser_profile"
-
-
-async def download_urls_with_browser(
-    urls_and_paths: list[tuple[str, str]],
-    timeout: float = 60.0,
-) -> list[str]:
-    """Download multiple files using a single Playwright browser session.
-
-    This is more efficient than calling download_with_browser() multiple times
-    because it reuses the same browser context.
-
-    Args:
-        urls_and_paths: List of (url, output_path) tuples
-        timeout: Download timeout per file in seconds
-
-    Returns:
-        List of successfully downloaded output paths
-
-    Raises:
-        ImportError: If Playwright is not installed
-        ValueError: If authentication is required
-    """
-    if not urls_and_paths:
-        return []
-
-    try:
-        from playwright.async_api import async_playwright
-    except ImportError:
-        raise ImportError(
-            "Playwright is required for downloading media files.\n"
-            "Install with: pip install playwright && playwright install chromium"
-        )
-
-    downloaded = []
-
-    async with async_playwright() as p:
-        context = await p.chromium.launch_persistent_context(
-            user_data_dir=str(BROWSER_PROFILE_DIR),
-            headless=True,
-            args=["--password-store=basic"],  # Match login command for cookie compatibility
-        )
-
-        try:
-            page = await context.new_page()
-
-            for url, output_path in urls_and_paths:
-                output_file = Path(output_path).resolve()
-                # Security: Validate path doesn't escape cwd via relative traversal (../).
-                # Absolute paths are allowed - users need to save to paths like ~/Downloads/.
-                # This protection catches relative path traversal bugs, not user-specified paths.
-                try:
-                    output_file.relative_to(Path.cwd())
-                except ValueError:
-                    # Path is outside cwd - allow if user specified an absolute path
-                    if not Path(output_path).is_absolute():
-                        raise ValueError(f"Path traversal detected: {output_path}")
-                output_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-
-                try:
-                    response = await page.goto(url, timeout=timeout * 1000)
-
-                    if "accounts.google.com" in page.url:
-                        raise ValueError(
-                            "Authentication required. Run 'notebooklm login' to re-authenticate."
-                        )
-
-                    if response and response.status == 200:
-                        content_type = response.headers.get("content-type", "")
-                        if "text/html" in content_type:
-                            raise ValueError(
-                                "Download failed: received HTML instead of media file."
-                            )
-
-                        content = await response.body()
-                        if content:
-                            output_file.write_bytes(content)
-                            downloaded.append(output_path)
-
-                except ValueError:
-                    raise
-                except Exception as e:
-                    # Log failed downloads but continue with others
-                    logger.warning("Download failed for %s: %s", url, e)
-                    continue
-
-        finally:
-            await context.close()
-
-    return downloaded
-
-
-async def download_with_browser(
-    url: str,
-    output_path: str,
-    timeout: float = 60.0,
-) -> str:
-    """Download a file using Playwright browser with Google authentication.
-
-    This uses the persistent browser profile to download files from Google's
-    content servers (lh3.googleusercontent.com, contribution.usercontent.google.com)
-    which require cross-domain authentication that httpx cannot provide.
-
-    Args:
-        url: The URL to download (must be a Google content URL)
-        output_path: Path to save the downloaded file
-        timeout: Download timeout in seconds
-
-    Returns:
-        The output path if successful
-
-    Raises:
-        ImportError: If Playwright is not installed
-        ValueError: If download fails or authentication is required
-        TimeoutError: If download times out
-    """
-    try:
-        from playwright.async_api import async_playwright
-    except ImportError:
-        raise ImportError(
-            "Playwright is required for downloading media files.\n"
-            "Install with: pip install playwright && playwright install chromium"
-        )
-
-    output_file = Path(output_path).resolve()
-    # Security: Validate path doesn't escape cwd via relative traversal (../).
-    # Absolute paths are allowed - users need to save to paths like ~/Downloads/.
-    # This protection catches relative path traversal bugs, not user-specified paths.
-    try:
-        output_file.relative_to(Path.cwd())
-    except ValueError:
-        # Path is outside cwd - allow if user specified an absolute path
-        if not Path(output_path).is_absolute():
-            raise ValueError(f"Path traversal detected: {output_path}")
-    output_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-
-    async with async_playwright() as p:
-        # Use persistent context with saved profile for Google auth
-        context = await p.chromium.launch_persistent_context(
-            user_data_dir=str(BROWSER_PROFILE_DIR),
-            headless=True,
-            accept_downloads=True,
-            args=["--password-store=basic"],  # Match login command for cookie compatibility
-        )
-
-        try:
-            page = await context.new_page()
-
-            # Use expect_download to properly handle download-triggering URLs
-            # page.goto() throws when navigation triggers a download
-            try:
-                async with page.expect_download(timeout=timeout * 1000) as download_info:
-                    # This will raise an exception because download starts
-                    try:
-                        await page.goto(url, timeout=timeout * 1000)
-                    except Exception:
-                        # Expected - navigation is interrupted by download
-                        pass
-
-                download = await download_info.value
-                # Save download to the target path
-                await download.save_as(output_path)
-                return output_path
-
-            except Exception as e:
-                # If expect_download times out or fails, try direct navigation
-                # This handles cases where the URL returns content directly
-                error_msg = str(e)
-
-                # If it's a timeout waiting for download, the URL might serve content directly
-                if "Timeout" in error_msg or "waiting for download" in error_msg.lower():
-                    response = await page.goto(url, timeout=timeout * 1000)
-
-                    # Check if we got redirected to login
-                    if "accounts.google.com" in page.url:
-                        raise ValueError(
-                            "Authentication required. Run 'notebooklm login' to re-authenticate."
-                        )
-
-                    if response:
-                        content_type = response.headers.get("content-type", "")
-
-                        if "text/html" in content_type:
-                            raise ValueError(
-                                "Download failed: received HTML instead of media file. "
-                                "Authentication may have expired. Run 'notebooklm login'."
-                            )
-
-                        # Save the response body directly
-                        content = await response.body()
-                        if not content:
-                            raise ValueError("Download failed: empty response")
-
-                        output_file.write_bytes(content)
-                        return output_path
-
-                raise ValueError(f"Download failed: {e}")
-
-        finally:
-            await context.close()

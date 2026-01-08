@@ -308,18 +308,4 @@ class TestDownloadUrl:
 
             assert result == output_path
 
-    def test_needs_browser_download(self, mock_artifacts_api):
-        """Test detection of URLs requiring browser download."""
-        api, _ = mock_artifacts_api
-
-        assert api._needs_browser_download(
-            "https://lh3.googleusercontent.com/abc"
-        ) is True
-        assert api._needs_browser_download(
-            "https://contribution.usercontent.google.com/xyz"
-        ) is True
-        assert api._needs_browser_download(
-            "https://other.example.com/file.mp4"
-        ) is False
-
 
