@@ -27,7 +27,7 @@ def is_mp4(path: str) -> bool:
 @requires_auth
 class TestDownloadAudio:
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_download_audio(self, client, test_notebook_id):
         """Downloads existing audio artifact - read-only.
 
@@ -51,7 +51,7 @@ class TestDownloadAudio:
 @requires_auth
 class TestDownloadVideo:
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_download_video(self, client, test_notebook_id):
         """Downloads existing video artifact - read-only."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -71,7 +71,7 @@ class TestDownloadVideo:
 @requires_auth
 class TestDownloadInfographic:
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_download_infographic(self, client, test_notebook_id):
         """Downloads existing infographic - read-only."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -93,7 +93,7 @@ class TestDownloadInfographic:
 @requires_auth
 class TestDownloadSlideDeck:
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_download_slide_deck(self, client, test_notebook_id):
         """Downloads existing slide deck - read-only."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -114,7 +114,7 @@ class TestDownloadSlideDeck:
 @requires_auth
 class TestExportArtifact:
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_export_artifact(self, client, test_notebook_id):
         """Exports existing artifact - read-only."""
         artifacts = await client.artifacts.list(test_notebook_id)

@@ -9,9 +9,9 @@ class TestNotesList:
     """Test listing notes."""
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_notes(self, client, test_notebook_id):
-        """List notes in golden notebook - read-only."""
+        """List notes in test notebook - read-only."""
         notes = await client.notes.list(test_notebook_id)
         assert isinstance(notes, list)
 
@@ -21,12 +21,12 @@ class TestNotesGet:
     """Test getting individual notes."""
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_get_note(self, client, test_notebook_id):
-        """Get a specific note from golden notebook - read-only."""
+        """Get a specific note from test notebook - read-only."""
         notes = await client.notes.list(test_notebook_id)
         if not notes:
-            pytest.skip("No notes available in golden notebook")
+            pytest.skip("No notes available in test notebook")
 
         note = await client.notes.get(test_notebook_id, notes[0].id)
         assert note is not None
@@ -99,8 +99,8 @@ class TestMindMaps:
     """Test mind map operations."""
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_mind_maps(self, client, test_notebook_id):
-        """List mind maps in golden notebook - read-only."""
+        """List mind maps in test notebook - read-only."""
         mind_maps = await client.notes.list_mind_maps(test_notebook_id)
         assert isinstance(mind_maps, list)

@@ -3,7 +3,7 @@
 All artifact generation tests consolidated here. These tests:
 - Use `generation_notebook` fixture (session-scoped, has content)
 - Are marked with @pytest.mark.slow (take 30+ seconds)
-- Variant tests are marked @pytest.mark.exhaustive (skip to save quota)
+- Variant tests are marked @pytest.mark.variants (skip to save quota)
 
 Note: Cleanup is handled automatically - the session-scoped generation_notebook
 is deleted at test session end, removing all created artifacts.
@@ -39,7 +39,7 @@ class TestAudioGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_audio_deep_dive_long(
         self, client, generation_notebook
     ):
@@ -52,7 +52,7 @@ class TestAudioGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_audio_brief_short(
         self, client, generation_notebook
     ):
@@ -65,7 +65,7 @@ class TestAudioGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_audio_critique(
         self, client, generation_notebook
     ):
@@ -77,7 +77,7 @@ class TestAudioGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_audio_debate(
         self, client, generation_notebook
     ):
@@ -89,7 +89,7 @@ class TestAudioGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_audio_with_language(
         self, client, generation_notebook
     ):
@@ -114,7 +114,7 @@ class TestVideoGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_video_explainer_anime(
         self, client, generation_notebook
     ):
@@ -127,7 +127,7 @@ class TestVideoGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_video_brief_whiteboard(
         self, client, generation_notebook
     ):
@@ -140,7 +140,7 @@ class TestVideoGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_video_with_instructions(
         self, client, generation_notebook
     ):
@@ -154,7 +154,7 @@ class TestVideoGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_video_kawaii_style(
         self, client, generation_notebook
     ):
@@ -166,7 +166,7 @@ class TestVideoGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_video_watercolor_style(
         self, client, generation_notebook
     ):
@@ -178,7 +178,7 @@ class TestVideoGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_video_auto_style(
         self, client, generation_notebook
     ):
@@ -203,7 +203,7 @@ class TestQuizGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_quiz_with_options(
         self, client, generation_notebook
     ):
@@ -217,7 +217,7 @@ class TestQuizGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_quiz_fewer_easy(
         self, client, generation_notebook
     ):
@@ -243,7 +243,7 @@ class TestFlashcardsGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_flashcards_with_options(
         self, client, generation_notebook
     ):
@@ -270,7 +270,7 @@ class TestInfographicGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_infographic_portrait_detailed(
         self, client, generation_notebook
     ):
@@ -284,7 +284,7 @@ class TestInfographicGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_infographic_square_concise(
         self, client, generation_notebook
     ):
@@ -297,7 +297,7 @@ class TestInfographicGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_infographic_landscape(
         self, client, generation_notebook
     ):
@@ -322,7 +322,7 @@ class TestSlideDeckGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_slide_deck_detailed(
         self, client, generation_notebook
     ):
@@ -336,7 +336,7 @@ class TestSlideDeckGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_slide_deck_presenter_short(
         self, client, generation_notebook
     ):
@@ -362,7 +362,7 @@ class TestDataTableGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_data_table_with_instructions(
         self, client, generation_notebook
     ):

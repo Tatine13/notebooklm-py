@@ -8,8 +8,8 @@ from notebooklm import Source, SourceStatus, SourceTimeoutError
 class TestSourceOperations:
     """Tests for source creation operations.
 
-    Note: Source creation requires an OWNED notebook. The golden notebook
-    (shared demo) is read-only - use temp_notebook fixture instead.
+    Note: Source creation requires an OWNED notebook. The test notebook
+    is read-only - use temp_notebook fixture instead.
     """
 
     @pytest.mark.asyncio
@@ -119,7 +119,7 @@ class TestSourceRetrieval:
 
 @requires_auth
 class TestSourceMutations:
-    """Tests that create/delete sources - use temp_notebook to avoid affecting golden notebook."""
+    """Tests that create/delete sources - use temp_notebook to avoid affecting test notebook."""
 
     @pytest.mark.asyncio
     @pytest.mark.stable

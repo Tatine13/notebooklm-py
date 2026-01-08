@@ -61,8 +61,8 @@ asyncio_default_fixture_loop_scope = "function"
 addopts = "--ignore=tests/e2e"
 markers = [
     "slow: tests taking 30+ seconds (generation, polling)",
-    "exhaustive: parameter variant tests (skip to save quota)",
-    "golden: read-only tests (safe, fast, no side effects)",
+    "variants: parameter variant tests (skip to save quota)",
+    "readonly: read-only tests against user's test notebook",
 ]
 
 [tool.coverage.run]

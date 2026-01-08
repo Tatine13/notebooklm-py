@@ -63,7 +63,7 @@ export NOTEBOOKLM_TEST_NOTEBOOK_ID="your-notebook-id-here"
 pytest tests/unit/
 
 # Should pass - uses your test notebook
-pytest tests/e2e -m golden -v
+pytest tests/e2e -m readonly -v
 ```
 
 If tests skip with "no auth stored" or fail with permission errors, your setup is incomplete.
@@ -77,13 +77,11 @@ If tests skip with "no auth stored" or fail with permission errors, your setup i
 pytest
 
 # Run E2E tests (requires setup above)
-pytest tests/e2e
-
-# Run specific marker combinations
-pytest tests/e2e -m golden          # Read-only tests only (~2 min)
+pytest tests/e2e -m readonly        # Read-only tests only (~2 min)
 pytest tests/e2e -m "not slow"      # Skip generation tests (~5 min)
-pytest tests/e2e -m "not exhaustive" # Skip variant tests (~30 min)
-pytest tests/e2e -m exhaustive      # ALL variant tests (~2 hours, high quota)
+pytest tests/e2e -m "not variants"  # Skip variant tests (~30 min)
+pytest tests/e2e -m variants        # Only variant tests
+pytest tests/e2e                    # ALL tests (~2 hours, high quota)
 ```
 
 ## Test Structure
@@ -127,7 +125,7 @@ Your notebook must have:
 - Pre-generated artifacts (audio, quiz, etc.)
 
 ```python
-@pytest.mark.golden
+@pytest.mark.readonly
 async def test_list_artifacts(self, client, test_notebook_id):
     artifacts = await client.artifacts.list(test_notebook_id)
     assert isinstance(artifacts, list)
@@ -154,7 +152,7 @@ async def test_generate_quiz(self, client, generation_notebook):
     assert result is not None
 ```
 
-**Why not golden?** You can't generate on notebooks you don't own.
+**Why not readonly?** You can't generate on notebooks you don't own.
 **Why not temp_notebook?** Creating fresh notebooks per test wastes quota.
 **Cleanup:** Automatic - the entire notebook is deleted at session end, removing all artifacts.
 
@@ -165,12 +163,12 @@ All markers defined in `pyproject.toml`:
 | Marker | Purpose |
 |--------|---------|
 | `slow` | Tests taking 30+ seconds (generation, polling) |
-| `exhaustive` | Parameter variant tests (skip to save quota) |
-| `golden` | Read-only tests (safe, fast, no side effects) |
+| `variants` | Parameter variant tests (skip to save quota) |
+| `readonly` | Read-only tests against user's test notebook |
 
-### Exhaustive Testing
+### Variant Testing
 
-Each artifact type has multiple options. We test one default per type, mark variants as `exhaustive`:
+Each artifact type has multiple options. We test one default per type, mark variants with `@pytest.mark.variants`:
 
 ```python
 # Runs by default
@@ -178,9 +176,9 @@ Each artifact type has multiple options. We test one default per type, mark vari
 async def test_generate_audio_default(self, client, generation_notebook):
     result = await client.artifacts.generate_audio(generation_notebook.id)
 
-# Only when requested: pytest -m exhaustive
+# Only when requested: pytest -m variants
 @pytest.mark.slow
-@pytest.mark.exhaustive
+@pytest.mark.variants
 async def test_generate_audio_brief(self, client, generation_notebook):
     result = await client.artifacts.generate_audio(
         generation_notebook.id,
@@ -251,10 +249,10 @@ Need network?
 ├── Mocked → tests/integration/
 └── Real API → tests/e2e/
     └── What notebook?
-        ├── Read-only → test_notebook_id + @pytest.mark.golden
+        ├── Read-only → test_notebook_id + @pytest.mark.readonly
         ├── CRUD → temp_notebook
         └── Generation → generation_notebook + @pytest.mark.slow
-            └── Variant? → add @pytest.mark.exhaustive
+            └── Variant? → add @pytest.mark.variants
 ```
 
 ### Example: New Generation Test
@@ -272,7 +270,7 @@ class TestNewArtifact:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.exhaustive
+    @pytest.mark.variants
     async def test_generate_new_artifact_with_options(self, client, generation_notebook):
         result = await client.artifacts.generate_new(
             generation_notebook.id,

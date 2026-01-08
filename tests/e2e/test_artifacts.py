@@ -18,7 +18,7 @@ class TestArtifactRetrieval:
     """Tests for artifact retrieval and listing operations."""
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_artifacts(self, client, test_notebook_id):
         """Read-only test - lists existing artifacts."""
         artifacts = await client.artifacts.list(test_notebook_id)
@@ -26,7 +26,7 @@ class TestArtifactRetrieval:
         assert all(isinstance(art, Artifact) for art in artifacts)
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_get_artifact(self, client, test_notebook_id):
         """Test getting a specific artifact by ID."""
         artifacts = await client.artifacts.list(test_notebook_id)
@@ -39,7 +39,7 @@ class TestArtifactRetrieval:
         assert artifact.id == artifacts[0].id
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_get_artifact_not_found(self, client, test_notebook_id):
         """Test getting a non-existent artifact returns None."""
         artifact = await client.artifacts.get(test_notebook_id, "nonexistent_artifact_id")
@@ -51,7 +51,7 @@ class TestArtifactTypeSpecificLists:
     """Tests for type-specific artifact list methods."""
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_audio(self, client, test_notebook_id):
         """Test listing audio artifacts."""
         artifacts = await client.artifacts.list_audio(test_notebook_id)
@@ -61,7 +61,7 @@ class TestArtifactTypeSpecificLists:
             assert art.artifact_type == 1
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_video(self, client, test_notebook_id):
         """Test listing video artifacts."""
         artifacts = await client.artifacts.list_video(test_notebook_id)
@@ -71,7 +71,7 @@ class TestArtifactTypeSpecificLists:
             assert art.artifact_type == 3
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_reports(self, client, test_notebook_id):
         """Test listing report artifacts."""
         artifacts = await client.artifacts.list_reports(test_notebook_id)
@@ -81,7 +81,7 @@ class TestArtifactTypeSpecificLists:
             assert art.artifact_type == 2
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_quizzes(self, client, test_notebook_id):
         """Test listing quiz artifacts."""
         artifacts = await client.artifacts.list_quizzes(test_notebook_id)
@@ -92,7 +92,7 @@ class TestArtifactTypeSpecificLists:
             assert art.is_quiz is True
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_flashcards(self, client, test_notebook_id):
         """Test listing flashcard artifacts."""
         artifacts = await client.artifacts.list_flashcards(test_notebook_id)
@@ -103,7 +103,7 @@ class TestArtifactTypeSpecificLists:
             assert art.is_flashcards is True
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_infographics(self, client, test_notebook_id):
         """Test listing infographic artifacts."""
         artifacts = await client.artifacts.list_infographics(test_notebook_id)
@@ -113,7 +113,7 @@ class TestArtifactTypeSpecificLists:
             assert art.artifact_type == 7
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_slide_decks(self, client, test_notebook_id):
         """Test listing slide deck artifacts."""
         artifacts = await client.artifacts.list_slide_decks(test_notebook_id)
@@ -123,7 +123,7 @@ class TestArtifactTypeSpecificLists:
             assert art.artifact_type == 8
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_list_data_tables(self, client, test_notebook_id):
         """Test listing data table artifacts."""
         artifacts = await client.artifacts.list_data_tables(test_notebook_id)
@@ -138,7 +138,7 @@ class TestReportSuggestions:
     """Report suggestion tests."""
 
     @pytest.mark.asyncio
-    @pytest.mark.golden
+    @pytest.mark.readonly
     async def test_suggest_reports(self, client, test_notebook_id):
         """Read-only test - gets suggestions without generating."""
         suggestions = await client.artifacts.suggest_reports(test_notebook_id)
