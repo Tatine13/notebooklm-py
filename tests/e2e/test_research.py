@@ -33,7 +33,6 @@ class TestResearchStart:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.unstable  # Deep research may take longer/rate limited
     async def test_start_deep_web_research(self, client, temp_notebook):
         """Test starting deep web research."""
         result = await client.research.start(
@@ -124,7 +123,6 @@ class TestResearchPoll:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.unstable  # Research behavior can be unpredictable
     async def test_poll_until_complete(self, client, temp_notebook):
         """Test polling until research completes."""
         # Start research
@@ -183,7 +181,6 @@ class TestResearchImport:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.unstable  # Research behavior can be unpredictable
     async def test_full_research_workflow(self, client, temp_notebook):
         """Test complete research workflow: start -> poll -> import.
 
@@ -251,7 +248,6 @@ class TestResearchDriveSource:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.unstable  # Requires Drive access
     async def test_start_drive_research(self, client, temp_notebook):
         """Test starting Drive research (fast mode only)."""
         result = await client.research.start(
