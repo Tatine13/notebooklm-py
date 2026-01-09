@@ -34,7 +34,7 @@ For automated environments, multiple accounts, or parallel agent workflows:
 **Parallel agents:** The CLI stores notebook context in a shared file (`~/.notebooklm/context.json`). Multiple concurrent agents using `notebooklm use` can overwrite each other's context.
 
 **Solutions for parallel workflows:**
-1. **Always use explicit `-n` flag** (recommended): Pass `-n <notebook_id>` to every command instead of relying on `use`
+1. **Always use explicit notebook ID** (recommended): Pass `-n <notebook_id>` (for `wait`/`download` commands) or `--notebook <notebook_id>` (for others) instead of relying on `use`
 2. **Per-agent isolation:** Set unique `NOTEBOOKLM_HOME` per agent: `export NOTEBOOKLM_HOME=/tmp/agent-$ID`
 3. **Use full UUIDs:** Avoid partial IDs in automation (they can become ambiguous)
 
@@ -110,7 +110,7 @@ Before starting workflows, verify the CLI is ready:
 | Download video | `notebooklm download video ./output.mp4` |
 | Delete notebook | `notebooklm notebook delete <id>` |
 
-**Parallel safety:** Most commands accept `-n <notebook_id>` to specify the target notebook explicitly. Use this in parallel/multi-agent workflows instead of `notebooklm use`. For chat, use `--new` to start fresh conversations (avoids conversation ID conflicts).
+**Parallel safety:** Use explicit notebook IDs in parallel workflows. Commands supporting `-n` shorthand: `artifact wait`, `source wait`, `research wait/status`, `download *`. Other commands use `--notebook`. For chat, use `--new` to start fresh conversations (avoids conversation ID conflicts).
 
 **Partial IDs:** Use first 6+ characters of UUIDs. Must be unique prefix (fails if ambiguous). Works for: `use`, `delete`, `wait` commands. For automation, prefer full UUIDs to avoid ambiguity.
 
@@ -326,7 +326,7 @@ notebooklm artifact list --json
 | Error | Cause | Action |
 |-------|-------|--------|
 | Auth/cookie error | Session expired | Run `notebooklm login` |
-| "No notebook context" | Context not set | Run `notebooklm use <id>` |
+| "No notebook context" | Context not set | Use `-n <id>` or `--notebook <id>` flag (parallel), or `notebooklm use <id>` (single-agent) |
 | "No result found for RPC ID" | Rate limiting | Wait 5-10 min, retry |
 | `GENERATION_FAILED` | Google rate limit | Wait and retry later |
 | Download fails | Generation incomplete | Check `artifact list` for status |
