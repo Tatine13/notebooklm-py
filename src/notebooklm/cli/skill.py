@@ -4,7 +4,9 @@ Commands for managing the Claude Code skill integration.
 """
 
 import re
+from importlib import resources
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -12,9 +14,17 @@ from .helpers import console
 
 
 # Skill paths
-SKILL_SOURCE = Path(__file__).parent.parent.parent.parent / "skills" / "notebooklm" / "SKILL.md"
 SKILL_DEST_DIR = Path.home() / ".claude" / "skills" / "notebooklm"
 SKILL_DEST = SKILL_DEST_DIR / "SKILL.md"
+
+
+def get_skill_source_content() -> Optional[str]:
+    """Read the skill source file from package data."""
+    try:
+        # Python 3.9+ way to read package data
+        return resources.files("notebooklm").joinpath("data", "SKILL.md").read_text()
+    except (FileNotFoundError, TypeError):
+        return None
 
 
 def get_package_version() -> str:
@@ -51,18 +61,16 @@ def install():
     Copies the skill file to ~/.claude/skills/notebooklm/SKILL.md
     and embeds the current package version for tracking.
     """
-    # Check if source exists
-    if not SKILL_SOURCE.exists():
-        console.print(f"[red]Error:[/red] Skill source not found at {SKILL_SOURCE}")
-        console.print("This may indicate an incomplete installation.")
+    # Read skill content from package data
+    content = get_skill_source_content()
+    if content is None:
+        console.print("[red]Error:[/red] Skill source not found in package data.")
+        console.print("This may indicate an incomplete or corrupted installation.")
+        console.print("Try reinstalling: pip install --force-reinstall notebooklm-py")
         raise SystemExit(1)
 
     # Create destination directory
     SKILL_DEST_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Read skill content
-    with open(SKILL_SOURCE) as f:
-        content = f.read()
 
     # Embed version in skill file (after frontmatter)
     version = get_package_version()

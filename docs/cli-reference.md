@@ -75,6 +75,7 @@ See [Configuration](configuration.md) for details on environment variables and C
 | `rename <id> <title>` | Source ID, new title | - | `source rename src123 "New Name"` |
 | `refresh <id>` | Source ID | - | `source refresh src123` |
 | `delete <id>` | Source ID | - | `source delete src123` |
+| `wait <id>` | Source ID | `--timeout`, `--interval` | `source wait src123` |
 
 ### Research Commands (`notebooklm research <cmd>`)
 
@@ -105,8 +106,9 @@ See [Configuration](configuration.md) for details on environment variables and C
 | `get <id>` | Artifact ID | - | `artifact get art123` |
 | `rename <id> <title>` | Artifact ID, title | - | `artifact rename art123 "Title"` |
 | `delete <id>` | Artifact ID | - | `artifact delete art123` |
-| `export <id>` | Artifact ID | - | `artifact export art123` |
+| `export <id>` | Artifact ID | `--type [docs|sheets]`, `--title` | `artifact export art123 --type sheets` |
 | `poll <task_id>` | Task ID | - | `artifact poll task123` |
+| `wait <id>` | Artifact ID | `--timeout`, `--interval` | `artifact wait art123` |
 | `suggestions` | - | - | `artifact suggestions` |
 
 ### Download Commands (`notebooklm download <type>`)
@@ -307,14 +309,14 @@ notebooklm generate audio [description] [OPTIONS]
 
 **Examples:**
 ```bash
-# Basic podcast
+# Basic podcast (starts async, returns immediately)
 notebooklm generate audio
 
 # Debate format with custom instructions
 notebooklm generate audio "Compare the two main viewpoints" --format debate
 
-# Wait for completion
-notebooklm generate audio --wait
+# Generate and wait for completion
+notebooklm generate audio "Focus on key points" --wait
 ```
 
 ### Generate: `video`

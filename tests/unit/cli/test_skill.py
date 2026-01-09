@@ -1,8 +1,7 @@
 """Tests for skill CLI commands."""
 
 import pytest
-from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 from click.testing import CliRunner
 
 from notebooklm.notebooklm_cli import cli
@@ -19,26 +18,25 @@ class TestSkillInstall:
     def test_skill_install_creates_directory_and_file(self, runner, tmp_path):
         """Test that install creates the skill file."""
         skill_dest = tmp_path / "skills" / "notebooklm" / "SKILL.md"
+        mock_source_content = "---\nname: notebooklm\n---\n# Test"
 
         with patch("notebooklm.cli.skill.SKILL_DEST", skill_dest), \
              patch("notebooklm.cli.skill.SKILL_DEST_DIR", skill_dest.parent), \
-             patch("notebooklm.cli.skill.SKILL_SOURCE") as mock_source:
+             patch("notebooklm.cli.skill.get_skill_source_content", return_value=mock_source_content):
 
-            # Create a mock source file
-            mock_source.exists.return_value = True
-            mock_source_content = "---\nname: notebooklm\n---\n# Test"
+            result = runner.invoke(cli, ["skill", "install"])
 
-            with patch("builtins.open", mock_open(read_data=mock_source_content)):
-                result = runner.invoke(cli, ["skill", "install"])
-
-            # Check command succeeded (may fail due to mock complexity, but structure is right)
-            assert "install" in result.output.lower() or result.exit_code == 0
+            assert result.exit_code == 0
+            assert "installed" in result.output.lower()
+            assert skill_dest.exists()
 
     def test_skill_install_source_not_found(self, runner, tmp_path):
         """Test error when source file doesn't exist."""
-        skill_source = tmp_path / "nonexistent" / "SKILL.md"
+        skill_dest = tmp_path / "skills" / "notebooklm" / "SKILL.md"
 
-        with patch("notebooklm.cli.skill.SKILL_SOURCE", skill_source):
+        with patch("notebooklm.cli.skill.SKILL_DEST", skill_dest), \
+             patch("notebooklm.cli.skill.SKILL_DEST_DIR", skill_dest.parent), \
+             patch("notebooklm.cli.skill.get_skill_source_content", return_value=None):
             result = runner.invoke(cli, ["skill", "install"])
 
         assert result.exit_code == 1

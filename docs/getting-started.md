@@ -118,14 +118,10 @@ notebooklm ask "What are the key themes in this article?"
 ### Step 5: Generate a Podcast
 
 ```bash
-notebooklm generate audio "Focus on the history and future predictions"
+notebooklm generate audio "Focus on the history and future predictions" --wait
 ```
 
-This starts an async generation job. Wait for it:
-
-```bash
-notebooklm generate audio --wait
-```
+This generates a podcast and waits for completion (takes 2-5 minutes).
 
 ### Step 6: Download the Result
 

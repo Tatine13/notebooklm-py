@@ -284,7 +284,7 @@ await client.sources.refresh(nb_id, src.id)  # Re-fetch URL content
 | `download_audio(notebook_id, output_path, artifact_id=None)` | `str, str, str` | `str` | Download audio to file (MP4/MP3) |
 | `download_video(notebook_id, output_path, artifact_id=None)` | `str, str, str` | `str` | Download video to file (MP4) |
 | `download_infographic(notebook_id, output_path, artifact_id=None)` | `str, str, str` | `str` | Download infographic to file (PNG) |
-| `download_slide_deck(notebook_id, output_dir, artifact_id=None)` | `str, str, str` | `list[str]` | Download slides to directory (PNGs) |
+| `download_slide_deck(notebook_id, output_path, artifact_id=None)` | `str, str, str` | `str` | Download slide deck as PDF |
 
 **Download Methods:**
 
@@ -301,15 +301,14 @@ path = await client.artifacts.download_video(nb_id, "video.mp4")
 # Download infographic
 path = await client.artifacts.download_infographic(nb_id, "infographic.png")
 
-# Download slide deck (creates multiple files)
-slide_paths = await client.artifacts.download_slide_deck(nb_id, "./slides/")
-# Returns: ["./slides/slide_001.png", "./slides/slide_002.png", ...]
+# Download slide deck as PDF
+path = await client.artifacts.download_slide_deck(nb_id, "./slides.pdf")
+# Returns: "./slides.pdf"
 ```
 
 **Notes:**
 - If `artifact_id` is not specified, downloads the first completed artifact of that type
 - Raises `ValueError` if no completed artifact is found
-- `download_slide_deck` creates the output directory if it doesn't exist
 - Some URLs require browser-based download (handled automatically)
 
 #### Export Methods
@@ -318,20 +317,23 @@ Export artifacts to Google Docs or Google Sheets.
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
-| `export_report(notebook_id, artifact_id, title="Export", export_type=1)` | `str, str, str, int` | `Any` | Export report to Google Docs |
-| `export_data_table(notebook_id, artifact_id, title="Export")` | `str, str, str` | `Any` | Export data table to Google Sheets |
-| `export(notebook_id, artifact_id=None, content=None, title="Export", export_type=1)` | `str, str, str, str, int` | `Any` | Generic export to Docs/Sheets |
+| `export_report(notebook_id, artifact_id, title, export_type)` | `str, str, str, ExportType` | `Any` | Export report to Google Docs/Sheets |
+| `export_data_table(notebook_id, artifact_id, title)` | `str, str, str` | `Any` | Export data table to Google Sheets |
+| `export(notebook_id, artifact_id, content, title, export_type)` | `str, str, str, str, ExportType` | `Any` | Generic export to Docs/Sheets |
 
-**Export Types:**
-- `export_type=1`: Export to Google Docs
-- `export_type=2`: Export to Google Sheets
+**Export Types (ExportType enum):**
+- `ExportType.DOCS` (1): Export to Google Docs
+- `ExportType.SHEETS` (2): Export to Google Sheets
 
 ```python
+from notebooklm import ExportType
+
 # Export a report to Google Docs
 result = await client.artifacts.export_report(
     nb_id,
     artifact_id="report_123",
-    title="My Briefing Doc"
+    title="My Briefing Doc",
+    export_type=ExportType.DOCS
 )
 # result contains the Google Docs URL
 
@@ -343,12 +345,12 @@ result = await client.artifacts.export_data_table(
 )
 # result contains the Google Sheets URL
 
-# Generic export (e.g., export any artifact to Docs)
+# Generic export (e.g., export any artifact to Sheets)
 result = await client.artifacts.export(
     nb_id,
     artifact_id="artifact_789",
     title="Exported Content",
-    export_type=1  # 1=Docs, 2=Sheets
+    export_type=ExportType.SHEETS
 )
 ```
 
@@ -692,6 +694,14 @@ class SlideDeckFormat(Enum):
 class SlideDeckLength(Enum):
     DEFAULT = 1
     SHORT = 2
+```
+
+### Export
+
+```python
+class ExportType(Enum):
+    DOCS = 1    # Export to Google Docs
+    SHEETS = 2  # Export to Google Sheets
 ```
 
 ### Chat Configuration

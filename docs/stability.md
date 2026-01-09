@@ -67,7 +67,7 @@ SourceError, SourceProcessingError, SourceTimeoutError, SourceNotFoundError
 RPCError
 
 # Enums
-AudioFormat, VideoFormat, StudioContentType, etc.
+AudioFormat, VideoFormat, StudioContentType, ExportType, etc.
 
 # Auth
 AuthTokens, DEFAULT_STORAGE_PATH
