@@ -1,6 +1,6 @@
 # notebooklm-py
 <p align="left">
-  <img src="notebooklm-py.png" alt="notebooklm-py logo" width="128">
+  <img src="https://raw.githubusercontent.com/teng-lin/notebooklm-py/main/notebooklm-py.png" alt="notebooklm-py logo" width="128">
 </p>
 
 **The missing API for Google NotebookLM.** Automate research workflows, generate podcasts from your documents, and integrate NotebookLM into AI agents—all from Python or the command line.
